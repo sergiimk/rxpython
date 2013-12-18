@@ -13,12 +13,12 @@ class FutureBase(object):
         self._result = None
         self._exception = None
 
-    #thread: executioner
+    #thread: executor
     def _success(self, result):
         if not self._try_success(result):
             raise IllegalStateError("result was already set")
 
-    #thread: executioner
+    #thread: executor
     def _try_success(self, result):
         with self._mutex:
             if self._completed:
@@ -28,12 +28,12 @@ class FutureBase(object):
             self._mutex.notify_all()
             return True
 
-    #thread: executioner
+    #thread: executor
     def _failure(self, exception):
         if not self._try_failure(exception):
             raise IllegalStateError("result was already set")
 
-    #thread: executioner
+    #thread: executor
     def _try_failure(self, exception):
         assert(isinstance(exception, BaseException))
         with self._mutex:
@@ -51,12 +51,17 @@ class FutureBase(object):
             return self._completed != 0
 
     #thread: any
-    #TODO: timeout
+    def wait(self, timeout=None):
+        with self._mutex:
+            if not self._completed:
+                self._mutex.wait(timeout)
+            return self._completed
+
+    #thread: any
     def result(self, timeout=None):
         with self._mutex:
             if not self._completed:
                 self._mutex.wait(timeout)
-
             if not self._completed:
                 raise TimeoutError()
             if self._completed < 0:

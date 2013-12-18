@@ -46,7 +46,8 @@ class PromiseTest(unittest.TestCase):
 
         f = p.future
         self.assertFalse(f.is_completed)
-        self.assertEqual(12345, f.result(timeout=10))
+        self.assertTrue(f.wait(10))
+        self.assertEqual(12345, f.result())
 
     def _run_async(self, f, timeout=0):
         def run_after():
