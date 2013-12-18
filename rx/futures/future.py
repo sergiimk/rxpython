@@ -1,4 +1,5 @@
 from threading import Condition
+import logging
 
 
 class IllegalStateError(Exception):
@@ -45,7 +46,13 @@ class FutureBase(object):
             self._state = state
             self._value = value
             self._mutex.notify_all()
+            self._on_result_set()
             return True
+
+    #thread executor
+    #virtual
+    def _on_result_set(self):
+        pass
 
     #thread: any
     @property
@@ -75,3 +82,29 @@ class FutureBase(object):
 class Future(FutureBase):
     def __init__(self):
         FutureBase.__init__(self)
+        self._success_clb = []
+        self._failure_clb = []
+
+    #thread: any
+    def on_success(self, clb):
+        with self._mutex:
+            self._success_clb.append(clb)
+
+    #thread: any
+    def on_failure(self, clb):
+        with self._mutex:
+            self._failure_clb.append(clb)
+
+    #thread executor
+    #override
+    #TODO: executor
+    #TODO: exceptions
+    def _on_result_set(self):
+        success = self._state == FutureBase.State.success
+        callbacks = self._success_clb if success else self._failure_clb
+        for clb in callbacks:
+            try:
+                clb(self._value)
+            except:
+                log = logging.getLogger(__name__)
+                log.exception()
