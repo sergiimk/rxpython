@@ -163,7 +163,7 @@ class Future(FutureBaseCallbacks):
         return p.future
 
     #TODO: executor
-    def then(self, future_fun, *vargs, **kargs):
+    def then(self, future_fun, *vargs, **kwargs):
         assert(callable(future_fun))
         from .promise import Promise
 
@@ -171,7 +171,7 @@ class Future(FutureBaseCallbacks):
 
         def start_next(_):
             try:
-                f = future_fun(*vargs, **kargs)
+                f = future_fun(*vargs, **kwargs)
                 f.on_success(p.success)
                 f.on_failure(p.failure)
             except Exception as ex:
@@ -224,3 +224,19 @@ class Future(FutureBaseCallbacks):
     def reduce(fun, futures, *vargs):
         return Future.all(futures) \
             .map(lambda results: functools.reduce(fun, results, *vargs))
+
+    @staticmethod
+    def from_concurrent_future(cf):
+        from .promise import Promise
+
+        p = Promise()
+
+        def _std_future_done(_):
+            ex = cf.exception()
+            if ex is not None:
+                p.failure(ex)
+            else:
+                p.success(cf.result())
+
+        cf.add_done_callback(_std_future_done)
+        return p.future
