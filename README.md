@@ -69,7 +69,7 @@ Future.first - contains result of first completed future
 <pre>
 <code>
 def hedged_request(urls):
-    futures = map(request_async, urls]
+    futures = map(request_async, urls)
     return Future.first(futures)
 
 >> fresponse = hedged_request([ip1, ip2, ip3])
