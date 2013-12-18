@@ -7,11 +7,16 @@ class IllegalStateError(Exception):
 
 #TODO: thread validation
 class FutureBase(object):
+
+    class State(object):
+        in_progress = 0
+        success = 1
+        failure = -1
+
     def __init__(self):
         self._mutex = Condition()
-        self._completed = 0
-        self._result = None
-        self._exception = None
+        self._state = FutureBase.State.in_progress
+        self._value = None
 
     #thread: executor
     def _success(self, result):
@@ -20,13 +25,7 @@ class FutureBase(object):
 
     #thread: executor
     def _try_success(self, result):
-        with self._mutex:
-            if self._completed:
-                return False
-            self._completed = 1
-            self._result = result
-            self._mutex.notify_all()
-            return True
+        return self._try_set_result(FutureBase.State.success, result)
 
     #thread: executor
     def _failure(self, exception):
@@ -36,11 +35,15 @@ class FutureBase(object):
     #thread: executor
     def _try_failure(self, exception):
         assert(isinstance(exception, BaseException))
+        return self._try_set_result(FutureBase.State.failure, exception)
+
+    #thread executor
+    def _try_set_result(self, state, value):
         with self._mutex:
-            if self._completed:
+            if self._state:
                 return False
-            self._completed = -1
-            self._exception = exception
+            self._state = state
+            self._value = value
             self._mutex.notify_all()
             return True
 
@@ -48,25 +51,25 @@ class FutureBase(object):
     @property
     def is_completed(self):
         with self._mutex:
-            return self._completed != 0
+            return self._state != FutureBase.State.in_progress
 
     #thread: any
     def wait(self, timeout=None):
         with self._mutex:
-            if not self._completed:
+            if not self._state:
                 self._mutex.wait(timeout)
-            return self._completed
+            return self._state != FutureBase.State.in_progress
 
     #thread: any
     def result(self, timeout=None):
         with self._mutex:
-            if not self._completed:
+            if not self._state:
                 self._mutex.wait(timeout)
-            if not self._completed:
+            if not self._state:
                 raise TimeoutError()
-            if self._completed < 0:
-                raise self._exception
-            return self._result
+            if self._state == FutureBase.State.failure:
+                raise self._value
+            return self._value
 
 
 class Future(FutureBase):
