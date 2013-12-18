@@ -1,4 +1,4 @@
-from threading import Condition
+from threading import Condition, Lock
 import functools
 import logging
 
@@ -7,17 +7,17 @@ class IllegalStateError(Exception):
     pass
 
 
+class FutureState(object):
+    in_progress = 0
+    success = 1
+    failure = -1
+
+
 #TODO: thread validation
-class FutureBase(object):
-
-    class State(object):
-        in_progress = 0
-        success = 1
-        failure = -1
-
+class FutureBaseState(object):
     def __init__(self):
         self._mutex = Condition()
-        self._state = FutureBase.State.in_progress
+        self._state = FutureState.in_progress
         self._value = None
 
     #thread: executor
@@ -27,7 +27,7 @@ class FutureBase(object):
 
     #thread: executor
     def _try_success(self, result):
-        return self._try_set_result(FutureBase.State.success, result)
+        return self._try_set_result(FutureState.success, result)
 
     #thread: executor
     def _failure(self, exception):
@@ -37,7 +37,7 @@ class FutureBase(object):
     #thread: executor
     def _try_failure(self, exception):
         assert(isinstance(exception, BaseException))
-        return self._try_set_result(FutureBase.State.failure, exception)
+        return self._try_set_result(FutureState.failure, exception)
 
     #thread executor
     def _try_set_result(self, state, value):
@@ -59,14 +59,14 @@ class FutureBase(object):
     @property
     def is_completed(self):
         with self._mutex:
-            return self._state != FutureBase.State.in_progress
+            return self._state != FutureState.in_progress
 
     #thread: any
     def wait(self, timeout=None):
         with self._mutex:
             if not self._state:
                 self._mutex.wait(timeout)
-            return self._state != FutureBase.State.in_progress
+            return self._state != FutureState.in_progress
 
     #thread: any
     def result(self, timeout=None):
@@ -75,14 +75,14 @@ class FutureBase(object):
                 self._mutex.wait(timeout)
             if not self._state:
                 raise TimeoutError()
-            if self._state == FutureBase.State.failure:
+            if self._state == FutureState.failure:
                 raise self._value
             return self._value
 
 
-class Future(FutureBase):
+class FutureBaseCallbacks(FutureBaseState):
     def __init__(self):
-        FutureBase.__init__(self)
+        FutureBaseState.__init__(self)
         self._success_clb = []
         self._failure_clb = []
 
@@ -90,7 +90,7 @@ class Future(FutureBase):
     def on_success(self, clb):
         assert(callable(clb))
         with self._mutex:
-            if self._state == FutureBase.State.success:
+            if self._state == FutureState.success:
                 self._run_callback(clb)
             elif not self._state:
                 self._success_clb.append(clb)
@@ -99,26 +99,15 @@ class Future(FutureBase):
     def on_failure(self, clb):
         assert(callable(clb))
         with self._mutex:
-            if self._state == FutureBase.State.failure:
+            if self._state == FutureState.failure:
                 self._run_callback(clb)
             elif not self._state:
                 self._failure_clb.append(clb)
 
-    #thread: any
-    #TODO: executor
-    def map(self, f):
-        assert(callable(f))
-        from .promise import Promise
-
-        p = Promise()
-        self.on_success(lambda res: p.complete(functools.partial(f, res)))
-        self.on_failure(lambda ex: p.failure(ex))
-        return p.future
-
     #thread: executor
     #override
     def _on_result_set(self):
-        success = self._state == FutureBase.State.success
+        success = self._state == FutureState.success
         callbacks = self._success_clb if success else self._failure_clb
 
         self._success_clb = None
@@ -136,3 +125,74 @@ class Future(FutureBase):
         except:
             log = logging.getLogger(__name__)
             log.exception()
+
+
+class Future(FutureBaseCallbacks):
+    def __init__(self):
+        FutureBaseCallbacks.__init__(self)
+
+    @staticmethod
+    def successful(result=None):
+        f = Future()
+        f._success(result)
+        return f
+
+    @staticmethod
+    def failed(exception):
+        f = Future()
+        f._failure(exception)
+        return f
+
+    #TODO: executor
+    def map(self, f):
+        assert(callable(f))
+        from .promise import Promise
+
+        p = Promise()
+        self.on_success(lambda res: p.complete(functools.partial(f, res)))
+        self.on_failure(lambda ex: p.failure(ex))
+        return p.future
+
+    class all_ctx(object):
+        def __init__(self, futures):
+            self.lock = Lock()
+            self.results = [None] * len(futures)
+            self.left = len(futures)
+
+    @staticmethod
+    def all(futures):
+        from .promise import Promise
+
+        p = Promise()
+        if not futures:
+            p.success([])
+            return p.future
+
+        ctx = Future.all_ctx(futures)
+
+        def done(i, res):
+            with ctx.lock:
+                ctx.results[i] = res
+                ctx.left -= 1
+                if not ctx.left:
+                    p.success(ctx.results)
+
+        for i, f in enumerate(futures):
+            f.on_success(functools.partial(done, i))
+            f.on_failure(lambda ex: p.failure(ex))
+
+        return p.future
+
+    @staticmethod
+    def first(futures):
+        from .promise import Promise
+        p = Promise()
+        for f in futures:
+            f.on_success(lambda res: p.try_success(res))
+            f.on_failure(lambda ex: p.try_failure(ex))
+        return p.future
+
+    @staticmethod
+    def reduce(fun, futures, *vargs):
+        return Future.all(futures) \
+            .map(lambda results: functools.reduce(fun, results, *vargs))

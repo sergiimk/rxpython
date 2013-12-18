@@ -1,8 +1,17 @@
 from rx.futures import *
+from concurrent.futures import ThreadPoolExecutor
+import time
+import functools
 import unittest
 
 
 class FutureTest(unittest.TestCase):
+    def setUp(self):
+        self.executor = ThreadPoolExecutor(max_workers=2)
+
+    def tearDown(self):
+        self.executor.shutdown()
+
     def testSuccessCallback(self):
         p = Promise()
         f = p.future
@@ -63,6 +72,59 @@ class FutureTest(unittest.TestCase):
         p.failure(TypeError())
         self.assertRaises(TypeError, f3.result)
 
+    def testAllCombinatorSuccess(self):
+        promises = [Promise() for _ in range(5)]
+        futures = [p.future for p in promises]
+
+        for i, p in enumerate(promises):
+            self._success_after(p, i, 0.01)
+
+        fall = Future.all(futures).map(sum)
+        self.assertEqual(sum(range(5)), fall.result(timeout=10))
+
+    def testAllCombinatorFailure(self):
+        promises = [Promise() for _ in range(5)]
+        futures = [p.future for p in promises]
+
+        for i, p in enumerate(promises):
+            if i != 3:
+                self._success_after(p, i, 0.01)
+            else:
+                self._after(functools.partial(p.failure, TypeError()), 0.02)
+
+        fall = Future.all(futures).map(sum)
+        self.assertRaises(TypeError, functools.partial(fall.result, 10))
+
+    def testFirstCombinator(self):
+        promises = [Promise() for _ in range(5)]
+        futures = [p.future for p in promises]
+
+        self._success_after(promises[4], 123, 0.01)
+
+        fall = Future.first(futures)
+        self.assertEqual(123, fall.result(timeout=10))
+
+    def testReduceCombinator(self):
+        promises = [Promise() for _ in range(5)]
+        futures = [p.future for p in promises]
+
+        for i, p in enumerate(promises):
+            self._success_after(p, i, 0.01)
+
+        fsum = Future.reduce(lambda x, y: x + y, futures)
+        self.assertEqual(sum(range(5)), fsum.result(timeout=10))
+
+    def _success_after(self, p, res, timeout):
+        def s():
+            time.sleep(timeout)
+            p.success(res)
+        self.executor.submit(s)
+
+    def _after(self, f, timeout):
+        def ff():
+            time.sleep(timeout)
+            f()
+        self.executor.submit(ff)
 
 if __name__ == '__main__':
     unittest.main()
