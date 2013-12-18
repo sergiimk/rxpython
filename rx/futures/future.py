@@ -1,4 +1,4 @@
-from threading import Lock
+from threading import Condition
 
 
 class IllegalStateError(Exception):
@@ -8,7 +8,7 @@ class IllegalStateError(Exception):
 #TODO: thread validation
 class FutureBase(object):
     def __init__(self):
-        self._mutex = Lock()
+        self._mutex = Condition()
         self._completed = 0
         self._result = None
         self._exception = None
@@ -25,6 +25,7 @@ class FutureBase(object):
                 return False
             self._completed = 1
             self._result = result
+            self._mutex.notify_all()
             return True
 
     #thread: executioner
@@ -40,6 +41,7 @@ class FutureBase(object):
                 return False
             self._completed = -1
             self._exception = exception
+            self._mutex.notify_all()
             return True
 
     #thread: any
@@ -52,6 +54,9 @@ class FutureBase(object):
     #TODO: timeout
     def result(self, timeout=None):
         with self._mutex:
+            if not self._completed:
+                self._mutex.wait(timeout)
+
             if not self._completed:
                 raise TimeoutError()
             if self._completed < 0:
