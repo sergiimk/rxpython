@@ -5,6 +5,12 @@ class Promise(object):
     def __init__(self):
         self._future = Future()
 
+    def complete(self, fun):
+        try:
+            self.success(fun())
+        except Exception as ex:
+            self.failure(ex)
+
     def success(self, result):
         self._future._success(result)
 

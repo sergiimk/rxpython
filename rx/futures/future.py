@@ -1,4 +1,5 @@
 from threading import Condition
+import functools
 import logging
 
 
@@ -87,24 +88,51 @@ class Future(FutureBase):
 
     #thread: any
     def on_success(self, clb):
+        assert(callable(clb))
         with self._mutex:
-            self._success_clb.append(clb)
+            if self._state == FutureBase.State.success:
+                self._run_callback(clb)
+            elif not self._state:
+                self._success_clb.append(clb)
 
     #thread: any
     def on_failure(self, clb):
+        assert(callable(clb))
         with self._mutex:
-            self._failure_clb.append(clb)
+            if self._state == FutureBase.State.failure:
+                self._run_callback(clb)
+            elif not self._state:
+                self._failure_clb.append(clb)
 
-    #thread executor
-    #override
+    #thread: any
     #TODO: executor
-    #TODO: exceptions
+    def map(self, f):
+        assert(callable(f))
+        from .promise import Promise
+
+        p = Promise()
+        self.on_success(lambda res: p.complete(functools.partial(f, res)))
+        self.on_failure(lambda ex: p.failure(ex))
+        return p.future
+
+    #thread: executor
+    #override
     def _on_result_set(self):
         success = self._state == FutureBase.State.success
         callbacks = self._success_clb if success else self._failure_clb
+
+        self._success_clb = None
+        self._failure_clb = None
+
         for clb in callbacks:
-            try:
-                clb(self._value)
-            except:
-                log = logging.getLogger(__name__)
-                log.exception()
+            self._run_callback(clb)
+
+    #thread: executor
+    #TODO: executor
+    #TODO: exceptions
+    def _run_callback(self, clb):
+        try:
+            clb(self._value)
+        except:
+            log = logging.getLogger(__name__)
+            log.exception()

@@ -32,6 +32,37 @@ class FutureTest(unittest.TestCase):
         p.failure(TypeError())
         self.assertTrue(self.clb_called)
 
+    def testCallbackCalledAfterCompletion(self):
+        p = Promise()
+        f = p.future
+        self.clb_called = False
+
+        p.success(123)
+
+        def on_success(res):
+            self.clb_called = res
+        f.on_success(on_success)
+
+        self.assertEqual(123, self.clb_called)
+
+    def testMapComposition(self):
+        p = Promise()
+        f1 = p.future
+        f2 = f1.map(lambda x: x * x)
+        f3 = f2.map(lambda x: x * 2)
+
+        p.success(5)
+        self.assertEqual(50, f3.result())
+
+    def testMapExceptionPropagation(self):
+        p = Promise()
+        f1 = p.future
+        f2 = f1.map(lambda x: x * x)
+        f3 = f2.map(lambda x: x * 2)
+
+        p.failure(TypeError())
+        self.assertRaises(TypeError, f3.result)
+
 
 if __name__ == '__main__':
     unittest.main()
