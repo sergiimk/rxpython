@@ -87,22 +87,24 @@ class FutureBaseCallbacks(FutureBaseState):
         self._failure_clb = []
 
     #thread: any
-    def on_success(self, clb):
+    def on_success(self, clb, *vargs, **kwargs):
         assert(callable(clb))
+        nclb = functools.partial(clb, *vargs, **kwargs)
         with self._mutex:
             if self._state == FutureState.success:
-                self._run_callback(clb)
+                self._run_callback(nclb)
             elif not self._state:
-                self._success_clb.append(clb)
+                self._success_clb.append(nclb)
 
     #thread: any
-    def on_failure(self, clb):
+    def on_failure(self, clb, *vargs, **kwargs):
         assert(callable(clb))
+        nclb = functools.partial(clb, *vargs, **kwargs)
         with self._mutex:
             if self._state == FutureState.failure:
-                self._run_callback(clb)
+                self._run_callback(nclb)
             elif not self._state:
-                self._failure_clb.append(clb)
+                self._failure_clb.append(nclb)
 
     #thread: executor
     #override
@@ -143,14 +145,40 @@ class Future(FutureBaseCallbacks):
         f._failure(exception)
         return f
 
+    def recover(self, fun_ex):
+        from .promise import Promise
+        p = Promise()
+        self.on_success(p.success)
+        self.on_failure(p.complete, fun_ex)
+        return p.future
+
     #TODO: executor
-    def map(self, f):
-        assert(callable(f))
+    def map(self, fun_res):
+        assert(callable(fun_res))
         from .promise import Promise
 
         p = Promise()
-        self.on_success(lambda res: p.complete(functools.partial(f, res)))
-        self.on_failure(lambda ex: p.failure(ex))
+        self.on_success(p.complete, fun_res)
+        self.on_failure(p.failure)
+        return p.future
+
+    #TODO: executor
+    def then(self, future_fun, *vargs, **kargs):
+        assert(callable(future_fun))
+        from .promise import Promise
+
+        p = Promise()
+
+        def start_next(_):
+            try:
+                f = future_fun(*vargs, **kargs)
+                f.on_success(p.success)
+                f.on_failure(p.failure)
+            except Exception as ex:
+                p.failure(ex)
+
+        self.on_success(start_next)
+        self.on_failure(p.failure)
         return p.future
 
     class all_ctx(object):
@@ -178,8 +206,8 @@ class Future(FutureBaseCallbacks):
                     p.success(ctx.results)
 
         for i, f in enumerate(futures):
-            f.on_success(functools.partial(done, i))
-            f.on_failure(lambda ex: p.failure(ex))
+            f.on_success(done, i)
+            f.on_failure(p.failure)
 
         return p.future
 
@@ -188,8 +216,8 @@ class Future(FutureBaseCallbacks):
         from .promise import Promise
         p = Promise()
         for f in futures:
-            f.on_success(lambda res: p.try_success(res))
-            f.on_failure(lambda ex: p.try_failure(ex))
+            f.on_success(p.try_success)
+            f.on_failure(p.try_failure)
         return p.future
 
     @staticmethod

@@ -5,9 +5,9 @@ class Promise(object):
     def __init__(self):
         self._future = Future()
 
-    def complete(self, fun):
+    def complete(self, fun, *vargs, **kwargs):
         try:
-            self.success(fun())
+            self.success(fun(*vargs, **kwargs))
         except Exception as ex:
             self.failure(ex)
 

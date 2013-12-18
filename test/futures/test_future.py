@@ -54,6 +54,14 @@ class FutureTest(unittest.TestCase):
 
         self.assertEqual(123, self.clb_called)
 
+    def testRecover(self):
+        p = Promise()
+        f = p.future
+        fr = f.recover(lambda _: None)
+
+        p.failure(TypeError())
+        self.assertIsNone(fr.result())
+
     def testMapComposition(self):
         p = Promise()
         f1 = p.future
@@ -71,6 +79,36 @@ class FutureTest(unittest.TestCase):
 
         p.failure(TypeError())
         self.assertRaises(TypeError, f3.result)
+
+    def testThenSuccess(self):
+        def auth():
+            p = Promise()
+            self._success_after(p, True, 0.01)
+            return p.future
+
+        def request(x):
+            p = Promise()
+            self._success_after(p, x * x, 0.01)
+            return p.future
+
+        fauth = auth()
+        frequest = fauth.then(request, 5)
+
+        self.assertEqual(25, frequest.result(timeout=10))
+
+    def testThenFailureFirst(self):
+        def auth():
+            return Future.failed(IOError())
+
+        def request(x):
+            p = Promise()
+            self._success_after(p, x * x, 0.01)
+            return p.future
+
+        fauth = auth()
+        frequest = fauth.then(request, 5)
+
+        self.assertRaises(IOError, functools.partial(frequest.result, 10))
 
     def testAllCombinatorSuccess(self):
         promises = [Promise() for _ in range(5)]
