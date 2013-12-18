@@ -1,6 +1,6 @@
+from .execution_context import Inline
 from threading import Condition, Lock
 import functools
-import logging
 
 
 class IllegalStateError(Exception):
@@ -81,8 +81,9 @@ class FutureBaseState(object):
 
 
 class FutureBaseCallbacks(FutureBaseState):
-    def __init__(self):
+    def __init__(self, executor=None):
         FutureBaseState.__init__(self)
+        self._executor = executor or Inline
         self._success_clb = []
         self._failure_clb = []
 
@@ -92,7 +93,7 @@ class FutureBaseCallbacks(FutureBaseState):
         nclb = functools.partial(clb, *vargs, **kwargs)
         with self._mutex:
             if self._state == FutureState.success:
-                self._run_callback(nclb)
+                self._executor.execute(nclb, self._value)
             elif not self._state:
                 self._success_clb.append(nclb)
 
@@ -102,7 +103,7 @@ class FutureBaseCallbacks(FutureBaseState):
         nclb = functools.partial(clb, *vargs, **kwargs)
         with self._mutex:
             if self._state == FutureState.failure:
-                self._run_callback(nclb)
+                self._executor.execute(nclb, self._value)
             elif not self._state:
                 self._failure_clb.append(nclb)
 
@@ -116,26 +117,26 @@ class FutureBaseCallbacks(FutureBaseState):
         self._failure_clb = None
 
         for clb in callbacks:
-            self._run_callback(clb)
-
-    #thread: executor
-    #TODO: executor
-    #TODO: exceptions
-    def _run_callback(self, clb):
-        try:
-            clb(self._value)
-        except:
-            log = logging.getLogger(__name__)
-            log.exception()
+            self._executor.execute(clb, self._value)
 
 
-class Future(FutureBaseCallbacks):
-    def __init__(self):
-        FutureBaseCallbacks.__init__(self)
+class FutureMetaSubscriptable(type):
+    def __getitem__(cls, executor):
+        def apply(fn, *args, **kwargs):
+            p = Promise(executor)
+            executor.execute(p.complete, fn, *args, **kwargs)
+            return p.future
+
+        return apply
+
+
+class Future(FutureBaseCallbacks, metaclass=FutureMetaSubscriptable):
+    def __init__(self, executor=None):
+        FutureBaseCallbacks.__init__(self, executor)
 
     @staticmethod
-    def successful(result=None):
-        f = Future()
+    def successful(result=None, executor=None):
+        f = Future(executor)
         f._success(result)
         return f
 
@@ -146,7 +147,6 @@ class Future(FutureBaseCallbacks):
         return f
 
     def recover(self, fun_ex):
-        from .promise import Promise
         p = Promise()
         self.on_success(p.success)
         self.on_failure(p.complete, fun_ex)
@@ -155,7 +155,6 @@ class Future(FutureBaseCallbacks):
     #TODO: executor
     def map(self, fun_res):
         assert(callable(fun_res))
-        from .promise import Promise
 
         p = Promise()
         self.on_success(p.complete, fun_res)
@@ -165,7 +164,6 @@ class Future(FutureBaseCallbacks):
     #TODO: executor
     def then(self, future_fun, *vargs, **kwargs):
         assert(callable(future_fun))
-        from .promise import Promise
 
         p = Promise()
 
@@ -189,8 +187,6 @@ class Future(FutureBaseCallbacks):
 
     @staticmethod
     def all(futures):
-        from .promise import Promise
-
         p = Promise()
         if not futures:
             p.success([])
@@ -213,7 +209,6 @@ class Future(FutureBaseCallbacks):
 
     @staticmethod
     def first(futures):
-        from .promise import Promise
         p = Promise()
         for f in futures:
             f.on_success(p.try_success)
@@ -227,8 +222,6 @@ class Future(FutureBaseCallbacks):
 
     @staticmethod
     def from_concurrent_future(cf):
-        from .promise import Promise
-
         p = Promise()
 
         def _std_future_done(_):
@@ -240,3 +233,34 @@ class Future(FutureBaseCallbacks):
 
         cf.add_done_callback(_std_future_done)
         return p.future
+
+
+class Promise(object):
+    def __init__(self, executor=None):
+        self._future = Future(executor)
+
+    def complete(self, fun, *vargs, **kwargs):
+        try:
+            self.success(fun(*vargs, **kwargs))
+        except Exception as ex:
+            self.failure(ex)
+
+    def success(self, result):
+        self._future._success(result)
+
+    def try_success(self, result):
+        return self._future._try_success(result)
+
+    def failure(self, exception):
+        self._future._failure(exception)
+
+    def try_failure(self, exception):
+        self._future._try_failure(exception)
+
+    @property
+    def is_completed(self):
+        return self._future.is_completed
+
+    @property
+    def future(self):
+        return self._future

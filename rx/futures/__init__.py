@@ -1,2 +1,1 @@
-from .promise import Promise
-from .future import Future
+from .future import Future, Promise

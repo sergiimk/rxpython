@@ -1,5 +1,5 @@
 from rx.futures import *
-from concurrent.futures import ThreadPoolExecutor
+from rx.executors import ThreadPoolExecutor
 import time
 import functools
 import unittest
@@ -81,15 +81,8 @@ class FutureTest(unittest.TestCase):
         self.assertRaises(TypeError, f3.result)
 
     def testThenSuccess(self):
-        def auth():
-            p = Promise()
-            self._success_after(p, True, 0.01)
-            return p.future
-
-        def request(x):
-            p = Promise()
-            self._success_after(p, x * x, 0.01)
-            return p.future
+        def auth(): return self._success_after(0.01, True)
+        def request(x): return self._success_after(0.01, x * x)
 
         fauth = auth()
         frequest = fauth.then(request, 5)
@@ -97,13 +90,8 @@ class FutureTest(unittest.TestCase):
         self.assertEqual(25, frequest.result(timeout=10))
 
     def testThenFailureFirst(self):
-        def auth():
-            return Future.failed(IOError())
-
-        def request(x):
-            p = Promise()
-            self._success_after(p, x * x, 0.01)
-            return p.future
+        def auth(): return Future.failed(IOError())
+        def request(x): return self._success_after(0.01, x * x)
 
         fauth = auth()
         frequest = fauth.then(request, 5)
@@ -111,24 +99,18 @@ class FutureTest(unittest.TestCase):
         self.assertRaises(IOError, functools.partial(frequest.result, 10))
 
     def testAllCombinatorSuccess(self):
-        promises = [Promise() for _ in range(5)]
-        futures = [p.future for p in promises]
-
-        for i, p in enumerate(promises):
-            self._success_after(p, i, 0.01)
-
+        futures = [self._success_after(0.01, i) for i in range(5)]
         fall = Future.all(futures).map(sum)
         self.assertEqual(sum(range(5)), fall.result(timeout=10))
 
     def testAllCombinatorFailure(self):
-        promises = [Promise() for _ in range(5)]
-        futures = [p.future for p in promises]
+        futures = []
 
-        for i, p in enumerate(promises):
+        for i in range(5):
             if i != 3:
-                self._success_after(p, i, 0.01)
+                futures.append(self._success_after(0.01, i))
             else:
-                self._after(functools.partial(p.failure, TypeError()), 0.02)
+                futures.append(self._after(0.02, functools.partial(self._raise, TypeError())))
 
         fall = Future.all(futures).map(sum)
         self.assertRaises(TypeError, functools.partial(fall.result, 10))
@@ -137,32 +119,30 @@ class FutureTest(unittest.TestCase):
         promises = [Promise() for _ in range(5)]
         futures = [p.future for p in promises]
 
-        self._success_after(promises[4], 123, 0.01)
+        self._after(0.01, promises[2].success, 123)
 
         fall = Future.first(futures)
         self.assertEqual(123, fall.result(timeout=10))
 
     def testReduceCombinator(self):
-        promises = [Promise() for _ in range(5)]
-        futures = [p.future for p in promises]
-
-        for i, p in enumerate(promises):
-            self._success_after(p, i, 0.01)
-
+        futures = [self._success_after(0.01, i) for i in range(5)]
         fsum = Future.reduce(lambda x, y: x + y, futures)
         self.assertEqual(sum(range(5)), fsum.result(timeout=10))
 
-    def _success_after(self, p, res, timeout):
-        def s():
+    def _success_after(self, timeout, value):
+        def do():
             time.sleep(timeout)
-            p.success(res)
-        self.executor.submit(s)
+            return value
+        return Future[self.executor](do)
 
-    def _after(self, f, timeout):
-        def ff():
+    def _after(self, timeout, f, *vargs, **kwargs):
+        def do():
             time.sleep(timeout)
-            f()
-        self.executor.submit(ff)
+            return f(*vargs, **kwargs)
+        return Future[self.executor](do)
+
+    def _raise(self, t):
+        raise t
 
 if __name__ == '__main__':
     unittest.main()
