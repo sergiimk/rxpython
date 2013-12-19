@@ -54,6 +54,21 @@ class FutureTest(unittest.TestCase):
 
         self.assertEqual(123, self.clb_called)
 
+    def testCancellation(self):
+        p = Promise()
+        f = p.future
+
+        self.assertFalse(p.is_cancelled)
+        self.assertFalse(f.is_cancelled)
+
+        f.cancel()
+
+        self.assertTrue(p.is_cancelled)
+        self.assertTrue(f.is_cancelled)
+
+        p.failure(OperationCancelledError())
+        self.assertRaises(OperationCancelledError, f.result)
+
     def testRecover(self):
         p = Promise()
         f = p.future
@@ -178,13 +193,13 @@ class FutureTest(unittest.TestCase):
         def do():
             time.sleep(timeout)
             return value
-        return Future[self.executor](do)
+        return Future.start(self.executor, do)
 
     def _after(self, timeout, f, *vargs, **kwargs):
         def do():
             time.sleep(timeout)
             return f(*vargs, **kwargs)
-        return Future[self.executor](do)
+        return Future.start(self.executor, do)
 
     def _raise(self, t):
         raise t

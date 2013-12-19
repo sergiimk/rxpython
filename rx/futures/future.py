@@ -7,6 +7,10 @@ class IllegalStateError(Exception):
     pass
 
 
+class OperationCancelledError(Exception):
+    pass
+
+
 class FutureState(object):
     in_progress = 0
     success = 1
@@ -20,6 +24,7 @@ class FutureBaseState(object):
         self._mutex = Condition()
         self._state = FutureState.in_progress
         self._value = None
+        self._cancel = False
 
     #thread: executor
     def _success(self, result):
@@ -61,6 +66,17 @@ class FutureBaseState(object):
     def is_completed(self):
         with self._mutex:
             return self._state != FutureState.in_progress
+
+    #thread: any
+    @property
+    def is_cancelled(self):
+        with self._mutex:
+            return self._cancel
+
+    #thread: any
+    def cancel(self):
+        with self._mutex:
+            self._cancel = True
 
     #thread: any
     def wait(self, timeout=None):
@@ -292,6 +308,10 @@ class Promise(object):
     @property
     def is_completed(self):
         return self._future.is_completed
+
+    @property
+    def is_cancelled(self):
+        return self._future.is_cancelled
 
     @property
     def future(self):
