@@ -89,7 +89,7 @@ Future.all - combining results of multiple futures (transforms list of futures t
 <pre>
 <code>
 def squares(values):
-    futures = map(sqr_async, values]
+    futures = map(sqr_async, values)
     return Future.all(futures)
 
 >> squares(range(5)).on_success(lambda results: print(results))
