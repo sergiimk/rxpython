@@ -34,6 +34,18 @@ class PromiseTest(unittest.TestCase):
 
         self.assertRaises(TypeError, f.result)
 
+    def testCompleteSuccess(self):
+        p = Promise()
+        p.complete(lambda: 123)
+        self.assertEqual(123, p.future.result())
+
+    def testCompleteFailure(self):
+        def f():
+            raise ArithmeticError()
+        p = Promise()
+        p.complete(f)
+        self.assertRaises(ArithmeticError, p.future.result)
+
     def testResultWaitTimeout(self):
         p = Promise()
         wait = functools.partial(p.future.result, 0)
