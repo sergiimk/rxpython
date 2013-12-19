@@ -1,1 +1,2 @@
-from .future import Future, Promise, CancelledError
+from .future import Future, Promise
+from concurrent.futures import CancelledError

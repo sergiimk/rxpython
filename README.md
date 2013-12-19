@@ -11,6 +11,7 @@ Futures are created by giving a Promise to return some data later.
 <pre>
 <code>
 from rx.futures import Promise
+import threading
 
 def request_blocking(request):
     sock.send(request)
@@ -19,9 +20,11 @@ def request_blocking(request):
 def request_async(request):
     p = Promise()
 
-    # Promise completion is scheduled in thread pool
-    thread_pool.submit(lambda: p.complete(request_blocking, request))
+    class RequestThread(threading.Thread):
+        def run(self):
+            p.success(request_blocking(request))
 
+    RequestThread().start()
     return p.future
 
 >> f = request_async("echo")

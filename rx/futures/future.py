@@ -1,6 +1,5 @@
 from .execution_context import Synchronous
 from threading import Condition, Lock
-from concurrent.futures import CancelledError
 import functools
 
 
@@ -14,8 +13,6 @@ class FutureState(object):
     failure = -1
 
 
-#TODO: thread validation
-#TODO: tracing
 class FutureBaseState(object):
     def __init__(self):
         self._mutex = Condition()

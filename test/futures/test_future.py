@@ -66,8 +66,8 @@ class FutureTest(unittest.TestCase):
         self.assertTrue(p.is_cancelled)
         self.assertTrue(f.is_cancelled)
 
-        p.failure(OperationCancelledError())
-        self.assertRaises(OperationCancelledError, f.result)
+        p.failure(CancelledError())
+        self.assertRaises(CancelledError, f.result)
 
     def testRecover(self):
         p = Promise()
