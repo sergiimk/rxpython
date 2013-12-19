@@ -33,7 +33,8 @@ def request_async(request):
 </code>
 </pre>
 
-You can also use simpler factory function for futures passing executor object to it.
+In fact you rarely need to manipulate *Promises* yourself, example above can be
+re-writen to use *ThreadPoolExecutor* instance that handles *Promise* completion for you.
 
 <pre>
 <code>
@@ -43,7 +44,8 @@ thread_pool = ThreadPoolExecutor(10)
 
 def request_async(request):
     # Thread pool should have compatible executor interface
-    return Future.start(thread_pool, request_blocking, request)
+    future = thread_pool.submit(request_blocking, request)
+    return future
 </code>
 </pre>
 

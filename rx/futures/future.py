@@ -1,4 +1,4 @@
-from .execution_context import Synchronous
+from .config import on_unhandled_failure
 from threading import Condition, Lock
 import functools
 
@@ -19,6 +19,12 @@ class FutureBaseState(object):
         self._state = FutureState.in_progress
         self._value = None
         self._cancel = False
+        self._failure_handled = False
+
+    def __del__(self):
+        with self._mutex:
+            if self._state == FutureState.failure and not self._failure_handled:
+                on_unhandled_failure(self._value)
 
     #thread: executor
     def _success(self, result):
@@ -36,7 +42,7 @@ class FutureBaseState(object):
 
     #thread: executor
     def _try_failure(self, exception):
-        assert(isinstance(exception, BaseException))
+        assert (isinstance(exception, BaseException))
         return self._try_set_result(FutureState.failure, exception)
 
     #thread executor
@@ -87,6 +93,7 @@ class FutureBaseState(object):
             if not self._state:
                 raise TimeoutError()
             if self._state == FutureState.failure:
+                self._failure_handled = True
                 raise self._value
             return self._value
 
@@ -100,7 +107,7 @@ class FutureBaseCallbacks(FutureBaseState):
 
     #thread: any
     def on_success(self, fun_res, executor=None):
-        assert(callable(fun_res))
+        assert (callable(fun_res))
         with self._mutex:
             if self._state == FutureState.success:
                 self._run_callback(fun_res, executor)
@@ -109,8 +116,9 @@ class FutureBaseCallbacks(FutureBaseState):
 
     #thread: any
     def on_failure(self, fun_ex, executor=None):
-        assert(callable(fun_ex))
+        assert (callable(fun_ex))
         with self._mutex:
+            self._failure_handled = True
             if self._state == FutureState.failure:
                 self._run_callback(fun_ex, executor)
             elif not self._state:
@@ -130,18 +138,13 @@ class FutureBaseCallbacks(FutureBaseState):
 
     def _run_callback(self, clb, executor):
         exc = executor or self._executor
-        exc.execute(clb, self._value)
+        f = exc.execute(clb, self._value)
+        f.on_failure(on_unhandled_failure)
 
 
 class Future(FutureBaseCallbacks):
     def __init__(self, clb_executor=None):
         FutureBaseCallbacks.__init__(self, clb_executor)
-
-    @staticmethod
-    def start(executor, fun, *args, clb_executor=None):
-        p = Promise(clb_executor)
-        executor.execute(p.complete, fun, *args)
-        return p.future
 
     @staticmethod
     def successful(result=None, clb_executor=None):
@@ -162,7 +165,7 @@ class Future(FutureBaseCallbacks):
         return p.future
 
     def map(self, fun_res, executor=None):
-        assert(callable(fun_res))
+        assert (callable(fun_res))
 
         p = Promise(self._executor)
         self.on_success(lambda res: p.complete(fun_res, res), executor=executor)
@@ -170,7 +173,7 @@ class Future(FutureBaseCallbacks):
         return p.future
 
     def then(self, future_fun, executor=None):
-        assert(callable(future_fun))
+        assert (callable(future_fun))
 
         p = Promise(self._executor)
 
@@ -187,7 +190,7 @@ class Future(FutureBaseCallbacks):
         return p.future
 
     def fallback(self, future_fun, executor=None):
-        assert(callable(future_fun))
+        assert (callable(future_fun))
 
         p = Promise(self._executor)
 
@@ -324,3 +327,15 @@ class Promise(object):
     @property
     def future(self):
         return self._future
+
+
+class SynchronousExecutor(object):
+    @staticmethod
+    def execute(fn, *args, **kwargs):
+        try:
+            return Future.successful(fn(*args, **kwargs))
+        except Exception as ex:
+            return Future.failed(ex)
+
+# alias
+Synchronous = SynchronousExecutor

@@ -19,6 +19,7 @@ class FutureTest(unittest.TestCase):
 
         def on_success(res):
             self.clb_called = res
+
         f.on_success(on_success)
         f.on_failure(lambda _: self.fail('failure callback called on success'))
 
@@ -34,6 +35,7 @@ class FutureTest(unittest.TestCase):
         def on_failure(ex):
             self.assertIsInstance(ex, TypeError)
             self.clb_called = True
+
         f.on_failure(on_failure)
         f.on_success(lambda _: self.fail('success callback called on failure'))
 
@@ -50,6 +52,7 @@ class FutureTest(unittest.TestCase):
 
         def on_success(res):
             self.clb_called = res
+
         f.on_success(on_success)
 
         self.assertEqual(123, self.clb_called)
@@ -97,6 +100,7 @@ class FutureTest(unittest.TestCase):
 
     def testThenSuccess(self):
         def auth(): return self._success_after(0.01, True)
+
         def request(x): return self._success_after(0.01, x * x)
 
         fauth = auth()
@@ -106,6 +110,7 @@ class FutureTest(unittest.TestCase):
 
     def testThenFailureFirst(self):
         def auth(): return Future.failed(IOError())
+
         def request(x): return self._success_after(0.01, x * x)
 
         fauth = auth()
@@ -115,6 +120,7 @@ class FutureTest(unittest.TestCase):
 
     def testThenFailureSecond(self):
         def auth(): return self._success_after(0.01, True)
+
         def request(x): return Future.failed(IOError())
 
         fauth = auth()
@@ -124,6 +130,7 @@ class FutureTest(unittest.TestCase):
 
     def testThenFailureFun(self):
         def auth(): return self._success_after(0.01, True)
+
         def request(x): raise AttributeError()
 
         fauth = auth()
@@ -133,6 +140,7 @@ class FutureTest(unittest.TestCase):
 
     def testFallback(self):
         def connect_plain(): return Future.failed(IOError())
+
         def connect_ssl(): return self._success_after(0.01, True)
 
         fconnect = connect_plain().fallback(connect_ssl)
@@ -193,13 +201,15 @@ class FutureTest(unittest.TestCase):
         def do():
             time.sleep(timeout)
             return value
-        return Future.start(self.executor, do)
+
+        return self.executor.submit(do)
 
     def _after(self, timeout, f, *vargs, **kwargs):
         def do():
             time.sleep(timeout)
             return f(*vargs, **kwargs)
-        return Future.start(self.executor, do)
+
+        return self.executor.submit(do)
 
     def _raise(self, t):
         raise t
