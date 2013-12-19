@@ -123,19 +123,15 @@ class FutureBaseCallbacks(FutureBaseState):
         exc.execute(clb, self._value)
 
 
-class FutureMetaSubscriptable(type):
-    def __getitem__(cls, executor, clb_executor=None):
-        def apply(fn, *args, **kwargs):
-            p = Promise(clb_executor)
-            executor.execute(p.complete, fn, *args, **kwargs)
-            return p.future
-
-        return apply
-
-
-class Future(FutureBaseCallbacks, metaclass=FutureMetaSubscriptable):
+class Future(FutureBaseCallbacks):
     def __init__(self, clb_executor=None):
         FutureBaseCallbacks.__init__(self, clb_executor)
+
+    @staticmethod
+    def start(executor, fun, *args, clb_executor=None):
+        p = Promise(clb_executor)
+        executor.execute(p.complete, fun, *args)
+        return p.future
 
     @staticmethod
     def successful(result=None, clb_executor=None):

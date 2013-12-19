@@ -30,7 +30,7 @@ def request_async(request):
 </code>
 </pre>
 
-You can also use simpler factory function for futures, passing executor object in square brackets.
+You can also use simpler factory function for futures passing executor object to it.
 
 <pre>
 <code>
@@ -40,14 +40,14 @@ thread_pool = ThreadPoolExecutor(10)
 
 def request_async(request):
     # Thread pool should have compatible executor interface
-    return Future[thread_pool](request_blocking, request)
+    return Future.start(thread_pool, request_blocking, request)
 </code>
 </pre>
 
 Futures composability
 ---------------------
 
-Future.map - transforming the result of future
+**Future.map** - transforming the result of future
 
 <pre>
 <code>
@@ -57,7 +57,7 @@ Future.map - transforming the result of future
 </code>
 </pre>
 
-Future.then - chaining futures one after another
+**Future.then** - chaining futures one after another
 
 <pre>
 <code>
@@ -72,7 +72,7 @@ def authenticate_and_make_request(request):
 </code>
 </pre>
 
-Future.fallback - using result of second future is original future fails
+**Future.fallback** - using result of second future is original future fails
 
 <pre>
 <code>
@@ -86,7 +86,7 @@ def connect_ssl():
 </code>
 </pre>
 
-Future.all - combining results of multiple futures (transforms list of futures to future of result list)
+**Future.all** - combining results of multiple futures (transforms list of futures to future of result list)
 
 <pre>
 <code>
@@ -99,8 +99,9 @@ def squares(values):
 </code>
 </pre>
 
-Future.first - contains result of first completed future
-Future.first_successful - same but waits for first successfully completed
+**Future.first** - contains result of first completed future
+
+**Future.first_successful** - same but waits for first successfully completed
 
 <pre>
 <code>

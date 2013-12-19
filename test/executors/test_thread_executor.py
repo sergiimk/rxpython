@@ -18,9 +18,9 @@ class ThreadPoolExecutorTest(unittest.TestCase):
             f = tpx.submit(error)
             self.assertRaises(TypeError, functools.partial(f.result, 10))
 
-    def testExecutionContext(self):
+    def testStartFactory(self):
         with ThreadPoolExecutor(1) as tpx:
-            f = Future[tpx](math.factorial, 10)
+            f = Future.start(tpx, math.factorial, 10)
             self.assertEqual(3628800, f.result(timeout=10))
 
 
