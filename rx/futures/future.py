@@ -14,6 +14,7 @@ class FutureState(object):
 
 
 #TODO: thread validation
+#TODO: tracing
 class FutureBaseState(object):
     def __init__(self):
         self._mutex = Condition()
@@ -81,29 +82,29 @@ class FutureBaseState(object):
 
 
 class FutureBaseCallbacks(FutureBaseState):
-    def __init__(self, executor=None):
+    def __init__(self, clb_executor=None):
         FutureBaseState.__init__(self)
-        self._executor = executor or Synchronous
+        self._executor = clb_executor or Synchronous
         self._success_clb = []
         self._failure_clb = []
 
     #thread: any
-    def on_success(self, fun_res):
+    def on_success(self, fun_res, executor=None):
         assert(callable(fun_res))
         with self._mutex:
             if self._state == FutureState.success:
-                self._executor.execute(fun_res, self._value)
+                self._run_callback(fun_res, executor)
             elif not self._state:
-                self._success_clb.append(fun_res)
+                self._success_clb.append((fun_res, executor))
 
     #thread: any
-    def on_failure(self, fun_ex):
+    def on_failure(self, fun_ex, executor=None):
         assert(callable(fun_ex))
         with self._mutex:
             if self._state == FutureState.failure:
-                self._executor.execute(fun_ex, self._value)
+                self._run_callback(fun_ex, executor)
             elif not self._state:
-                self._failure_clb.append(fun_ex)
+                self._failure_clb.append((fun_ex, executor))
 
     #thread: executor
     #override
@@ -114,14 +115,18 @@ class FutureBaseCallbacks(FutureBaseState):
         self._success_clb = None
         self._failure_clb = None
 
-        for clb in callbacks:
-            self._executor.execute(clb, self._value)
+        for clb, exc in callbacks:
+            self._run_callback(clb, exc)
+
+    def _run_callback(self, clb, executor):
+        exc = executor or self._executor
+        exc.execute(clb, self._value)
 
 
 class FutureMetaSubscriptable(type):
-    def __getitem__(cls, executor):
+    def __getitem__(cls, executor, clb_executor=None):
         def apply(fn, *args, **kwargs):
-            p = Promise(executor)
+            p = Promise(clb_executor)
             executor.execute(p.complete, fn, *args, **kwargs)
             return p.future
 
@@ -129,41 +134,39 @@ class FutureMetaSubscriptable(type):
 
 
 class Future(FutureBaseCallbacks, metaclass=FutureMetaSubscriptable):
-    def __init__(self, executor=None):
-        FutureBaseCallbacks.__init__(self, executor)
+    def __init__(self, clb_executor=None):
+        FutureBaseCallbacks.__init__(self, clb_executor)
 
     @staticmethod
-    def successful(result=None):
-        f = Future()
+    def successful(result=None, clb_executor=None):
+        f = Future(clb_executor)
         f._success(result)
         return f
 
     @staticmethod
-    def failed(exception):
-        f = Future()
+    def failed(exception, clb_executor=None):
+        f = Future(clb_executor)
         f._failure(exception)
         return f
 
-    def recover(self, fun_ex):
-        p = Promise()
+    def recover(self, fun_ex, executor=None):
+        p = Promise(self._executor)
         self.on_success(p.success)
-        self.on_failure(lambda ex: p.complete(fun_ex, ex))
+        self.on_failure(lambda ex: p.complete(fun_ex, ex), executor=executor)
         return p.future
 
-    #TODO: executor
-    def map(self, fun_res):
+    def map(self, fun_res, executor=None):
         assert(callable(fun_res))
 
-        p = Promise()
-        self.on_success(lambda res: p.complete(fun_res, res))
+        p = Promise(self._executor)
+        self.on_success(lambda res: p.complete(fun_res, res), executor=executor)
         self.on_failure(p.failure)
         return p.future
 
-    #TODO: executor
-    def then(self, future_fun):
+    def then(self, future_fun, executor=None):
         assert(callable(future_fun))
 
-        p = Promise()
+        p = Promise(self._executor)
 
         def start_next(_):
             try:
@@ -173,14 +176,14 @@ class Future(FutureBaseCallbacks, metaclass=FutureMetaSubscriptable):
             except Exception as ex:
                 p.failure(ex)
 
-        self.on_success(start_next)
+        self.on_success(start_next, executor=executor)
         self.on_failure(p.failure)
         return p.future
 
-    def fallback(self, future_fun):
+    def fallback(self, future_fun, executor=None):
         assert(callable(future_fun))
 
-        p = Promise()
+        p = Promise(self._executor)
 
         def start_fallback(_):
             try:
@@ -191,7 +194,7 @@ class Future(FutureBaseCallbacks, metaclass=FutureMetaSubscriptable):
                 p.failure(ex)
 
         self.on_success(p.success)
-        self.on_failure(start_fallback)
+        self.on_failure(start_fallback, executor=executor)
         return p.future
 
     class comb_ctx(object):
@@ -201,12 +204,11 @@ class Future(FutureBaseCallbacks, metaclass=FutureMetaSubscriptable):
             self.left = 0
 
     @staticmethod
-    def all(futures):
-        p = Promise()
+    def all(futures, clb_executor=None):
         if not futures:
-            p.success([])
-            return p.future
+            return Future.successful([], clb_executor)
 
+        p = Promise(clb_executor)
         ctx = Future.comb_ctx()
         ctx.results = [None] * len(futures)
         ctx.left = len(futures)
@@ -225,22 +227,22 @@ class Future(FutureBaseCallbacks, metaclass=FutureMetaSubscriptable):
         return p.future
 
     @staticmethod
-    def first(futures):
+    def first(futures, clb_executor=None):
         if not futures:
             raise TypeError("Future.first() got empty sequence")
 
-        p = Promise()
+        p = Promise(clb_executor)
         for f in futures:
             f.on_success(p.try_success)
             f.on_failure(p.try_failure)
         return p.future
 
     @staticmethod
-    def first_successful(futures):
+    def first_successful(futures, clb_executor=None):
         if not futures:
             raise TypeError("Future.first_successful() got empty sequence")
 
-        p = Promise()
+        p = Promise(clb_executor)
         ctx = Future.comb_ctx()
         ctx.left = len(futures)
 
@@ -257,20 +259,21 @@ class Future(FutureBaseCallbacks, metaclass=FutureMetaSubscriptable):
         return p.future
 
     @staticmethod
-    def reduce(fun, futures, *vargs):
-        return Future.all(futures) \
-            .map(lambda results: functools.reduce(fun, results, *vargs))
+    def reduce(fun, futures, *vargs, executor=None, clb_executor=None):
+        return Future \
+            .all(futures, clb_executor=clb_executor) \
+            .map(lambda results: functools.reduce(fun, results, *vargs), executor=executor)
 
     @staticmethod
-    def from_concurrent_future(cf):
-        p = Promise()
+    def from_concurrent_future(cf, clb_executor=None):
+        p = Promise(clb_executor)
         cf.add_done_callback(lambda f: p.complete(f.result))
         return p.future
 
 
 class Promise(object):
-    def __init__(self, executor=None):
-        self._future = Future(executor)
+    def __init__(self, clb_executor=None):
+        self._future = Future(clb_executor)
 
     def complete(self, fun, *vargs, **kwargs):
         try:

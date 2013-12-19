@@ -6,20 +6,39 @@ Composable alternative for _concurrent.features_ module for reactive programming
 Promises and Futures basics
 ---------------------------
 
+Futures are created by giving a Promise to return some data later.
+
 <pre>
 <code>
-def make_request(request, promise):
+def request_blocking(request):
     sock.send(request)
-    return sock.receive_all() # blocks
+    return sock.receive_all()
 
 def request_async(request):
     p = Promise()
-    thread_pool.submit(lambda: p.complete(make_request, request))
+
+    # Promise completion is scheduled in thread pool
+    thread_pool.submit(lambda: p.complete(request_blocking, request))
+
     return p.future
 
 >> f = request_async("echo")
 >> f.on_success(lambda resp: print("response: " + resp))
 >> f.on_failure(lambda ex: print("request failed"))
+</code>
+</pre>
+
+You can also use simpler factory function for futures, passing executor object in square brackets.
+
+<pre>
+<code>
+from rx.executors import ThreadPoolExecutor
+
+thread_pool = with ThreadPoolExecutor(10)
+
+def request_async(request):
+    # Thread pool should have compatible executor interface
+    return Future[thread_pool](request_blocking, request)
 </code>
 </pre>
 
