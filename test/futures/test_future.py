@@ -85,7 +85,7 @@ class FutureTest(unittest.TestCase):
         def request(x): return self._success_after(0.01, x * x)
 
         fauth = auth()
-        frequest = fauth.then(request, 5)
+        frequest = fauth.then(lambda: request(5))
 
         self.assertEqual(25, frequest.result(timeout=10))
 
@@ -94,7 +94,16 @@ class FutureTest(unittest.TestCase):
         def request(x): return self._success_after(0.01, x * x)
 
         fauth = auth()
-        frequest = fauth.then(request, 5)
+        frequest = fauth.then(lambda: request(5))
+
+        self.assertRaises(IOError, functools.partial(frequest.result, 10))
+
+    def testThenFailureSecond(self):
+        def auth(): return self._success_after(0.01, True)
+        def request(x): return Future.failed(IOError())
+
+        fauth = auth()
+        frequest = fauth.then(lambda: request(5))
 
         self.assertRaises(IOError, functools.partial(frequest.result, 10))
 
@@ -143,6 +152,7 @@ class FutureTest(unittest.TestCase):
 
     def _raise(self, t):
         raise t
+
 
 if __name__ == '__main__':
     unittest.main()

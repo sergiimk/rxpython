@@ -1,4 +1,4 @@
-from .execution_context import Inline
+from .execution_context import Synchronous
 from threading import Condition, Lock
 import functools
 
@@ -83,29 +83,27 @@ class FutureBaseState(object):
 class FutureBaseCallbacks(FutureBaseState):
     def __init__(self, executor=None):
         FutureBaseState.__init__(self)
-        self._executor = executor or Inline
+        self._executor = executor or Synchronous
         self._success_clb = []
         self._failure_clb = []
 
     #thread: any
-    def on_success(self, clb, *vargs, **kwargs):
-        assert(callable(clb))
-        nclb = functools.partial(clb, *vargs, **kwargs)
+    def on_success(self, fun_res):
+        assert(callable(fun_res))
         with self._mutex:
             if self._state == FutureState.success:
-                self._executor.execute(nclb, self._value)
+                self._executor.execute(fun_res, self._value)
             elif not self._state:
-                self._success_clb.append(nclb)
+                self._success_clb.append(fun_res)
 
     #thread: any
-    def on_failure(self, clb, *vargs, **kwargs):
-        assert(callable(clb))
-        nclb = functools.partial(clb, *vargs, **kwargs)
+    def on_failure(self, fun_ex):
+        assert(callable(fun_ex))
         with self._mutex:
             if self._state == FutureState.failure:
-                self._executor.execute(nclb, self._value)
+                self._executor.execute(fun_ex, self._value)
             elif not self._state:
-                self._failure_clb.append(nclb)
+                self._failure_clb.append(fun_ex)
 
     #thread: executor
     #override
@@ -135,8 +133,8 @@ class Future(FutureBaseCallbacks, metaclass=FutureMetaSubscriptable):
         FutureBaseCallbacks.__init__(self, executor)
 
     @staticmethod
-    def successful(result=None, executor=None):
-        f = Future(executor)
+    def successful(result=None):
+        f = Future()
         f._success(result)
         return f
 
@@ -149,7 +147,7 @@ class Future(FutureBaseCallbacks, metaclass=FutureMetaSubscriptable):
     def recover(self, fun_ex):
         p = Promise()
         self.on_success(p.success)
-        self.on_failure(p.complete, fun_ex)
+        self.on_failure(lambda ex: p.complete(fun_ex, ex))
         return p.future
 
     #TODO: executor
@@ -157,19 +155,19 @@ class Future(FutureBaseCallbacks, metaclass=FutureMetaSubscriptable):
         assert(callable(fun_res))
 
         p = Promise()
-        self.on_success(p.complete, fun_res)
+        self.on_success(lambda res: p.complete(fun_res, res))
         self.on_failure(p.failure)
         return p.future
 
     #TODO: executor
-    def then(self, future_fun, *vargs, **kwargs):
+    def then(self, future_fun):
         assert(callable(future_fun))
 
         p = Promise()
 
         def start_next(_):
             try:
-                f = future_fun(*vargs, **kwargs)
+                f = future_fun()
                 f.on_success(p.success)
                 f.on_failure(p.failure)
             except Exception as ex:
@@ -202,7 +200,7 @@ class Future(FutureBaseCallbacks, metaclass=FutureMetaSubscriptable):
                     p.success(ctx.results)
 
         for i, f in enumerate(futures):
-            f.on_success(done, i)
+            f.on_success(functools.partial(done, i))
             f.on_failure(p.failure)
 
         return p.future
@@ -223,15 +221,7 @@ class Future(FutureBaseCallbacks, metaclass=FutureMetaSubscriptable):
     @staticmethod
     def from_concurrent_future(cf):
         p = Promise()
-
-        def _std_future_done(_):
-            ex = cf.exception()
-            if ex is not None:
-                p.failure(ex)
-            else:
-                p.success(cf.result())
-
-        cf.add_done_callback(_std_future_done)
+        cf.add_done_callback(lambda f: p.complete(f.result))
         return p.future
 
 

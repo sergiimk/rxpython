@@ -23,5 +23,6 @@ class ThreadPoolExecutorTest(unittest.TestCase):
             f = Future[tpx](math.factorial, 10)
             self.assertEqual(3628800, f.result(timeout=10))
 
+
 if __name__ == '__main__':
     unittest.main()
