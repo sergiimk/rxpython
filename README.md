@@ -51,6 +51,20 @@ def authenticate_and_make_request(request):
 </code>
 </pre>
 
+Future.fallback - using result of second future is original future fails
+
+<pre>
+<code>
+def connect_plain():
+    ...
+
+def connect_ssl():
+    ...
+
+>> fconnect = connect_plain().fallback(connect_ssl)
+</code>
+</pre>
+
 Future.all - combining results of multiple futures (transforms list of futures to future of result list)
 
 <pre>
@@ -65,12 +79,13 @@ def squares(values):
 </pre>
 
 Future.first - contains result of first completed future
+Future.first_successful - same but waits for first successfully completed
 
 <pre>
 <code>
 def hedged_request(urls):
     futures = map(request_async, urls)
-    return Future.first(futures)
+    return Future.first_successful(futures)
 
 >> fresponse = hedged_request([ip1, ip2, ip3])
 </code>

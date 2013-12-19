@@ -177,11 +177,28 @@ class Future(FutureBaseCallbacks, metaclass=FutureMetaSubscriptable):
         self.on_failure(p.failure)
         return p.future
 
-    class all_ctx(object):
-        def __init__(self, futures):
+    def fallback(self, future_fun):
+        assert(callable(future_fun))
+
+        p = Promise()
+
+        def start_fallback(_):
+            try:
+                f = future_fun()
+                f.on_success(p.success)
+                f.on_failure(p.failure)
+            except Exception as ex:
+                p.failure(ex)
+
+        self.on_success(p.success)
+        self.on_failure(start_fallback)
+        return p.future
+
+    class comb_ctx(object):
+        def __init__(self):
             self.lock = Lock()
-            self.results = [None] * len(futures)
-            self.left = len(futures)
+            self.results = None
+            self.left = 0
 
     @staticmethod
     def all(futures):
@@ -190,7 +207,9 @@ class Future(FutureBaseCallbacks, metaclass=FutureMetaSubscriptable):
             p.success([])
             return p.future
 
-        ctx = Future.all_ctx(futures)
+        ctx = Future.comb_ctx()
+        ctx.results = [None] * len(futures)
+        ctx.left = len(futures)
 
         def done(i, res):
             with ctx.lock:
@@ -207,10 +226,34 @@ class Future(FutureBaseCallbacks, metaclass=FutureMetaSubscriptable):
 
     @staticmethod
     def first(futures):
+        if not futures:
+            raise TypeError("Future.first() got empty sequence")
+
         p = Promise()
         for f in futures:
             f.on_success(p.try_success)
             f.on_failure(p.try_failure)
+        return p.future
+
+    @staticmethod
+    def first_successful(futures):
+        if not futures:
+            raise TypeError("Future.first_successful() got empty sequence")
+
+        p = Promise()
+        ctx = Future.comb_ctx()
+        ctx.left = len(futures)
+
+        def on_fail(ex):
+            with ctx.lock:
+                ctx.left -= 1
+                if not ctx.left:
+                    p.failure(ex)
+
+        for f in futures:
+            f.on_success(p.success)
+            f.on_failure(on_fail)
+
         return p.future
 
     @staticmethod

@@ -107,6 +107,22 @@ class FutureTest(unittest.TestCase):
 
         self.assertRaises(IOError, functools.partial(frequest.result, 10))
 
+    def testThenFailureFun(self):
+        def auth(): return self._success_after(0.01, True)
+        def request(x): raise AttributeError()
+
+        fauth = auth()
+        frequest = fauth.then(lambda: request(5))
+
+        self.assertRaises(AttributeError, functools.partial(frequest.result, 10))
+
+    def testFallback(self):
+        def connect_plain(): return Future.failed(IOError())
+        def connect_ssl(): return self._success_after(0.01, True)
+
+        fconnect = connect_plain().fallback(connect_ssl)
+        self.assertTrue(fconnect.result(timeout=10))
+
     def testAllCombinatorSuccess(self):
         futures = [self._success_after(0.01, i) for i in range(5)]
         fall = Future.all(futures).map(sum)
@@ -132,6 +148,26 @@ class FutureTest(unittest.TestCase):
 
         fall = Future.first(futures)
         self.assertEqual(123, fall.result(timeout=10))
+
+    def testFirstSuccessfulCombinator(self):
+        promises = [Promise() for _ in range(5)]
+        futures = [p.future for p in promises]
+
+        self._after(0.01, promises[2].failure, TypeError())
+        self._after(0.02, promises[4].success, 123)
+
+        fall = Future.first_successful(futures)
+        self.assertEqual(123, fall.result(timeout=10))
+
+    def testFirstSuccessfulCombinatorError(self):
+        promises = [Promise() for _ in range(5)]
+        futures = [p.future for p in promises]
+
+        for p in promises:
+            self._after(0.001, p.failure, TypeError())
+
+        fall = Future.first_successful(futures)
+        self.assertRaises(TypeError, functools.partial(fall.result, 10))
 
     def testReduceCombinator(self):
         futures = [self._success_after(0.01, i) for i in range(5)]
