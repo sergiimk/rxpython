@@ -1,5 +1,6 @@
 from rx.executors import ThreadPoolExecutor
-from rx.futures import Future
+from rx.futures import Future, CancelledError
+import time
 import math
 import functools
 import unittest
@@ -22,6 +23,13 @@ class ThreadPoolExecutorTest(unittest.TestCase):
         with ThreadPoolExecutor(1) as tpx:
             f = Future.start(tpx, math.factorial, 10)
             self.assertEqual(3628800, f.result(timeout=10))
+
+    def testCancellation(self):
+        with ThreadPoolExecutor(1) as tpx:
+            tpx.submit(time.sleep, 0.01)
+            f = tpx.submit(math.factorial, 10)
+            f.cancel()
+            self.assertRaises(CancelledError, f.result)
 
 
 if __name__ == '__main__':

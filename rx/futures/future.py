@@ -1,13 +1,10 @@
 from .execution_context import Synchronous
 from threading import Condition, Lock
+from concurrent.futures import CancelledError
 import functools
 
 
 class IllegalStateError(Exception):
-    pass
-
-
-class OperationCancelledError(Exception):
     pass
 
 
@@ -278,9 +275,23 @@ class Future(FutureBaseCallbacks):
 
     @staticmethod
     def from_concurrent_future(cf, clb_executor=None):
-        p = Promise(clb_executor)
-        cf.add_done_callback(lambda f: p.complete(f.result))
-        return p.future
+        class CFuture(Future):
+            def __init__(self, cf, clb_executor=None):
+                Future.__init__(self, clb_executor)
+                self.cf = cf
+                self.cf.add_done_callback(self._complete)
+
+            def cancel(self):
+                Future.cancel(self)
+                self.cf.cancel()
+
+            def _complete(self, f):
+                try:
+                    self._success(f.result())
+                except Exception as ex:
+                    self._failure(ex)
+
+        return CFuture(cf, clb_executor)
 
 
 class Promise(object):

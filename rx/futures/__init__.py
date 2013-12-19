@@ -1,1 +1,1 @@
-from .future import Future, Promise, OperationCancelledError
+from .future import Future, Promise, CancelledError
