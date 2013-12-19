@@ -10,6 +10,8 @@ Futures are created by giving a Promise to return some data later.
 
 <pre>
 <code>
+from rx.futures import Promise
+
 def request_blocking(request):
     sock.send(request)
     return sock.receive_all()
@@ -34,7 +36,7 @@ You can also use simpler factory function for futures, passing executor object i
 <code>
 from rx.executors import ThreadPoolExecutor
 
-thread_pool = with ThreadPoolExecutor(10)
+thread_pool = ThreadPoolExecutor(10)
 
 def request_async(request):
     # Thread pool should have compatible executor interface
