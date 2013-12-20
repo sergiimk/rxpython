@@ -1,23 +1,26 @@
-from .future_callbacks import FutureCoreCallbacks
+from .future_callbacks import (FutureCoreCallbacks,
+                               FutureCoreCallbacksSuccess,
+                               FutureCoreCallbacksFailure)
+
 from threading import Lock
 import functools
 
 
 class Future(FutureCoreCallbacks):
-    def __init__(self, clb_executor=None):
-        FutureCoreCallbacks.__init__(self, clb_executor)
-
     @staticmethod
     def successful(result=None, clb_executor=None):
-        f = Future(clb_executor)
-        f._success(result)
-        return f
+        return FutureSuccess(result, clb_executor)
 
     @staticmethod
     def failed(exception, clb_executor=None):
-        f = Future(clb_executor)
-        f._failure(exception)
-        return f
+        return FutureFailure(exception, clb_executor)
+
+    @staticmethod
+    def completed(fun, *args, clb_executor=None):
+        try:
+            return FutureSuccess(fun(*args), clb_executor)
+        except Exception as ex:
+            return FutureFailure(ex, clb_executor)
 
     def recover(self, fun_ex, executor=None):
         f = Future(self._executor)
@@ -151,3 +154,31 @@ class Future(FutureCoreCallbacks):
                 self._complete(f.result)
 
         return CFuture(cf, clb_executor)
+
+
+class FutureSuccess(FutureCoreCallbacksSuccess):
+    def recover(self, fun_ex, executor=None):
+        return self
+
+    def map(self, fun_res, executor=None):
+        return Future.map(self, fun_res, executor=executor)
+
+    def then(self, future_fun, executor=None):
+        return Future.then(self, future_fun, executor=executor)
+
+    def fallback(self, future_fun, executor=None):
+        return self
+
+
+class FutureFailure(FutureCoreCallbacksFailure):
+    def recover(self, fun_ex, executor=None):
+        return Future.recover(self, fun_ex, executor=executor)
+
+    def map(self, fun_res, executor=None):
+        return self
+
+    def then(self, future_fun, executor=None):
+        return self
+
+    def fallback(self, future_fun, executor=None):
+        return Future.fallback(self, future_fun, executor=executor)
