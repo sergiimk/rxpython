@@ -22,13 +22,14 @@ class FutureCoreCallbacks(FutureCore):
                 self._success_clb.append((fun_res, executor))
 
     def on_failure(self, fun_ex, executor=None):
-        assert callable(fun_ex), "Future.on_failure expects callable"
+        assert callable(fun_ex) or fun_ex is None, "Future.on_failure expects callable or None"
         with self._mutex:
             self._failure_handled = True
-            if self._state == FutureState.failure or self._state == FutureState.cancelled:
-                self._run_callback(fun_ex, executor)
-            elif not self._state:
-                self._failure_clb.append((fun_ex, executor))
+            if fun_ex is not None:
+                if self._state == FutureState.failure or self._state == FutureState.cancelled:
+                    self._run_callback(fun_ex, executor)
+                elif not self._state:
+                    self._failure_clb.append((fun_ex, executor))
 
     #override
     def _on_result_set(self):

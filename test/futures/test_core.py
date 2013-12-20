@@ -1,15 +1,10 @@
 from rx.futures import *
-from concurrent.futures import ThreadPoolExecutor
+from .test_base import FutureTestBase
 import functools
-import time
-import unittest
 
 
-class FutureCoreTest(unittest.TestCase):
-    def setUp(self):
-        self.executor = ThreadPoolExecutor(max_workers=1)
-
-    def testResultSucceeded(self):
+class FutureCoreTest(FutureTestBase):
+    def test_get_result_when_succeeded(self):
         p = Promise()
         self.assertFalse(p.is_completed)
         self.assertFalse(p.is_cancelled)
@@ -25,7 +20,7 @@ class FutureCoreTest(unittest.TestCase):
 
         self.assertEqual(10, f.result())
 
-    def testResultFailed(self):
+    def test_get_result_when_failed(self):
         p = Promise()
 
         p.failure(TypeError())
@@ -39,7 +34,7 @@ class FutureCoreTest(unittest.TestCase):
 
         self.assertRaises(TypeError, f.result)
 
-    def testResultCancelled(self):
+    def test_get_result_when_cancelled(self):
         p = Promise()
 
         f = p.future
@@ -57,36 +52,36 @@ class FutureCoreTest(unittest.TestCase):
 
         self.assertRaises(CancelledError, f.result)
 
-    def testExceptionSucceeded(self):
+    def test_get_exception_when_succeeded(self):
         p = Promise()
         p.success(10)
         f = p.future
         self.assertIsNone(f.exception())
 
-    def testExceptionFailed(self):
+    def test_get_exception_when_failed(self):
         p = Promise()
         p.failure(TypeError())
         f = p.future
         self.assertIsInstance(f.exception(), TypeError)
 
-    def testExceptionCancelled(self):
+    def test_get_exception_when_cancelled(self):
         p = Promise()
         f = p.future
         f.cancel()
         self.assertIsInstance(f.exception(), CancelledError)
 
-    def testResultAlreadyAssigned(self):
+    def test_set_result_when_already_set(self):
         p = Promise()
         p.success(123)
         self.assertRaises(IllegalStateError, lambda: p.success(321))
         self.assertRaises(IllegalStateError, lambda: p.failure(TypeError()))
 
-    def testCompleteSuccess(self):
+    def test_complete_successfully(self):
         p = Promise()
         p.complete(lambda: 123)
         self.assertEqual(123, p.future.result())
 
-    def testCompleteFailure(self):
+    def test_complete_with_exception(self):
         def f():
             raise ArithmeticError()
 
@@ -94,28 +89,19 @@ class FutureCoreTest(unittest.TestCase):
         p.complete(f)
         self.assertRaises(ArithmeticError, p.future.result)
 
-    def testResultWaitTimeout(self):
+    def test_wait_raises_timeout(self):
         p = Promise()
         wait = functools.partial(p.future.result, 0)
         self.assertRaises(TimeoutError, wait)
 
-    def testResultWaitCompletes(self):
-        p = Promise()
-        complete = functools.partial(p.success, 12345)
-        self._run_async(complete, 0.01)
-
-        f = p.future
+    def test_wait_succeeds(self):
+        f = self.success_after(0.01, 12345)
         self.assertFalse(f.is_completed)
         self.assertTrue(f.wait(10))
         self.assertEqual(12345, f.result())
 
-    def _run_async(self, f, timeout=0):
-        def run_after():
-            time.sleep(timeout)
-            f()
-
-        self.executor.submit(run_after)
-
 
 if __name__ == '__main__':
+    import unittest
+
     unittest.main()

@@ -1,10 +1,10 @@
+from .test_base import FutureTestBase
 from rx.futures import *
 from rx.futures.config import Default
-import unittest
 
 
-class FutureCallbacksTest(unittest.TestCase):
-    def testSuccessCallback(self):
+class FutureCallbacksTest(FutureTestBase):
+    def test_on_success_callback(self):
         p = Promise()
         f = p.future
         self.clb_called = False
@@ -19,7 +19,7 @@ class FutureCallbacksTest(unittest.TestCase):
         p.success(123)
         self.assertEqual(123, self.clb_called)
 
-    def testFailureCallback(self):
+    def test_on_failure_callback(self):
         p = Promise()
         f = p.future
         self.clb_called = False
@@ -35,7 +35,7 @@ class FutureCallbacksTest(unittest.TestCase):
         p.failure(TypeError())
         self.assertTrue(self.clb_called)
 
-    def testCallbackCalledPostCompletion(self):
+    def test_callbacks_called_post_completion(self):
         p = Promise()
         f = p.future
         self.clb_called = False
@@ -49,7 +49,7 @@ class FutureCallbacksTest(unittest.TestCase):
 
         self.assertEqual(123, self.clb_called)
 
-    def testCancellationFiresFailureCallback(self):
+    def test_cancelling_fires_failure_callback(self):
         p = Promise()
         f = p.future
         self.clb_called = False
@@ -65,7 +65,7 @@ class FutureCallbacksTest(unittest.TestCase):
         f.cancel()
         self.assertTrue(self.clb_called)
 
-    def testUnhandledErrorHandler(self):
+    def test_unhandled_error_handler(self):
         self.clb_called = False
 
         def on_unhandled(ex):
@@ -78,9 +78,8 @@ class FutureCallbacksTest(unittest.TestCase):
 
         self.assertIsInstance(self.clb_called, TypeError)
 
-    def _raise(self, t):
-        raise t
-
 
 if __name__ == '__main__':
+    import unittest
+
     unittest.main()
