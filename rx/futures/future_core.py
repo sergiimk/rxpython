@@ -37,7 +37,7 @@ class FutureCore(object):
             raise IllegalStateError("result was already set")
 
     def _try_failure(self, exception):
-        assert (isinstance(exception, BaseException))
+        assert isinstance(exception, Exception), "Promise.failure expects Exception instance"
         return self._try_set_result(FutureState.failure, exception)
 
     def _complete(self, fun, *vargs, **kwargs):

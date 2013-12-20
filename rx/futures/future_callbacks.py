@@ -18,7 +18,7 @@ class FutureCoreCallbacks(FutureCore):
             or get_default_callback_executor()
 
     def on_success(self, fun_res, executor=None):
-        assert (callable(fun_res))
+        assert callable(fun_res), "Future.on_success expects callable"
         with self._mutex:
             if self._state == FutureState.success:
                 self._run_callback(fun_res, executor)
@@ -26,7 +26,7 @@ class FutureCoreCallbacks(FutureCore):
                 self._success_clb.append((fun_res, executor))
 
     def on_failure(self, fun_ex, executor=None):
-        assert (callable(fun_ex))
+        assert callable(fun_ex), "Future.on_failure expects callable"
         with self._mutex:
             self._failure_handled = True
             if self._state == FutureState.failure:
@@ -59,7 +59,7 @@ class FutureCoreCallbacksSuccess(FutureCoreSuccess):
             or get_default_callback_executor()
 
     def on_success(self, fun_res, executor=None):
-        assert (callable(fun_res))
+        assert callable(fun_res), "Future.on_success expects callable"
         exc = executor or self._executor
         f = exc.execute(fun_res, self._value)
         f.on_failure(ON_UNHANDLED_FAILURE)
@@ -79,7 +79,7 @@ class FutureCoreCallbacksFailure(FutureCoreFailure):
         pass
 
     def on_failure(self, fun_ex, executor=None):
-        assert (callable(fun_ex))
+        assert callable(fun_ex), "Future.on_failure expects callable"
         exc = executor or self._executor
         f = exc.execute(fun_ex, self._value)
         f.on_failure(ON_UNHANDLED_FAILURE)

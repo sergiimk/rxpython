@@ -29,7 +29,7 @@ class Future(FutureCoreCallbacks):
         return f
 
     def map(self, fun_res, executor=None):
-        assert (callable(fun_res))
+        assert callable(fun_res), "Future.map expects callable"
 
         f = Future(self._executor)
         self.on_success(lambda res: f._complete(fun_res, res), executor=executor)
@@ -37,7 +37,7 @@ class Future(FutureCoreCallbacks):
         return f
 
     def then(self, future_fun, executor=None):
-        assert (callable(future_fun))
+        assert callable(future_fun), "Future.then expects callable"
 
         f = Future(self._executor)
 
@@ -54,7 +54,7 @@ class Future(FutureCoreCallbacks):
         return f
 
     def fallback(self, future_fun, executor=None):
-        assert (callable(future_fun))
+        assert callable(future_fun), "Future.fallback expects callable"
 
         f = Future(self._executor)
 
