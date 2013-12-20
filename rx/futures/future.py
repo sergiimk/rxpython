@@ -1,51 +1,6 @@
-from .future_core import FutureCore, FutureState
-from .config import on_unhandled_failure
+from .future_callbacks import FutureCoreCallbacks
 from threading import Lock
 import functools
-
-
-class FutureCoreCallbacks(FutureCore):
-    def __init__(self, clb_executor=None):
-        FutureCore.__init__(self)
-        self._executor = clb_executor or Synchronous
-        self._success_clb = []
-        self._failure_clb = []
-
-    #thread: any
-    def on_success(self, fun_res, executor=None):
-        assert (callable(fun_res))
-        with self._mutex:
-            if self._state == FutureState.success:
-                self._run_callback(fun_res, executor)
-            elif not self._state:
-                self._success_clb.append((fun_res, executor))
-
-    #thread: any
-    def on_failure(self, fun_ex, executor=None):
-        assert (callable(fun_ex))
-        with self._mutex:
-            self._failure_handled = True
-            if self._state == FutureState.failure:
-                self._run_callback(fun_ex, executor)
-            elif not self._state:
-                self._failure_clb.append((fun_ex, executor))
-
-    #thread: executor
-    #override
-    def _on_result_set(self):
-        success = self._state == FutureState.success
-        callbacks = self._success_clb if success else self._failure_clb
-
-        self._success_clb = None
-        self._failure_clb = None
-
-        for clb, exc in callbacks:
-            self._run_callback(clb, exc)
-
-    def _run_callback(self, clb, executor):
-        exc = executor or self._executor
-        f = exc.execute(clb, self._value)
-        f.on_failure(on_unhandled_failure)
 
 
 class Future(FutureCoreCallbacks):
@@ -196,15 +151,3 @@ class Future(FutureCoreCallbacks):
                 self._complete(f.result)
 
         return CFuture(cf, clb_executor)
-
-
-class SynchronousExecutor(object):
-    @staticmethod
-    def execute(fn, *args, **kwargs):
-        try:
-            return Future.successful(fn(*args, **kwargs))
-        except Exception as ex:
-            return Future.failed(ex)
-
-# alias
-Synchronous = SynchronousExecutor

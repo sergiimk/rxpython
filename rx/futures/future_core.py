@@ -1,4 +1,4 @@
-from .config import on_unhandled_failure
+from .config import ON_UNHANDLED_FAILURE
 from threading import Condition
 
 
@@ -23,7 +23,7 @@ class FutureCore(object):
     def __del__(self):
         with self._mutex:
             if self._state == FutureState.failure and not self._failure_handled:
-                on_unhandled_failure(self._value)
+                ON_UNHANDLED_FAILURE(self._value)
 
     #thread: executor
     def _success(self, result):
