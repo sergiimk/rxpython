@@ -65,52 +65,52 @@ class Future(FutureCoreCallbacks):
         return f
 
     def recover(self, fun_ex, executor=None):
-        p = Promise(self._executor)
-        self.on_success(p.success)
-        self.on_failure(lambda ex: p.complete(fun_ex, ex), executor=executor)
-        return p.future
+        f = Future(self._executor)
+        self.on_success(f._success)
+        self.on_failure(lambda ex: f._complete(fun_ex, ex), executor=executor)
+        return f
 
     def map(self, fun_res, executor=None):
         assert (callable(fun_res))
 
-        p = Promise(self._executor)
-        self.on_success(lambda res: p.complete(fun_res, res), executor=executor)
-        self.on_failure(p.failure)
-        return p.future
+        f = Future(self._executor)
+        self.on_success(lambda res: f._complete(fun_res, res), executor=executor)
+        self.on_failure(f._failure)
+        return f
 
     def then(self, future_fun, executor=None):
         assert (callable(future_fun))
 
-        p = Promise(self._executor)
+        f = Future(self._executor)
 
         def start_next(_):
             try:
-                f = future_fun()
-                f.on_success(p.success)
-                f.on_failure(p.failure)
+                f2 = future_fun()
+                f2.on_success(f._success)
+                f2.on_failure(f._failure)
             except Exception as ex:
-                p.failure(ex)
+                f._failure(ex)
 
         self.on_success(start_next, executor=executor)
-        self.on_failure(p.failure)
-        return p.future
+        self.on_failure(f._failure)
+        return f
 
     def fallback(self, future_fun, executor=None):
         assert (callable(future_fun))
 
-        p = Promise(self._executor)
+        f = Future(self._executor)
 
         def start_fallback(_):
             try:
-                f = future_fun()
-                f.on_success(p.success)
-                f.on_failure(p.failure)
+                f2 = future_fun()
+                f2.on_success(f._success)
+                f2.on_failure(f._failure)
             except Exception as ex:
-                p.failure(ex)
+                f._failure(ex)
 
-        self.on_success(p.success)
+        self.on_success(f._success)
         self.on_failure(start_fallback, executor=executor)
-        return p.future
+        return f
 
     class comb_ctx(object):
         def __init__(self):
@@ -123,7 +123,7 @@ class Future(FutureCoreCallbacks):
         if not futures:
             return Future.successful([], clb_executor)
 
-        p = Promise(clb_executor)
+        f = Future(clb_executor)
         ctx = Future.comb_ctx()
         ctx.results = [None] * len(futures)
         ctx.left = len(futures)
@@ -133,31 +133,32 @@ class Future(FutureCoreCallbacks):
                 ctx.results[i] = res
                 ctx.left -= 1
                 if not ctx.left:
-                    p.success(ctx.results)
+                    f._success(ctx.results)
 
-        for i, f in enumerate(futures):
-            f.on_success(functools.partial(done, i))
-            f.on_failure(p.failure)
+        for i, fi in enumerate(futures):
+            fi.on_success(functools.partial(done, i))
+            fi.on_failure(f._failure)
 
-        return p.future
+        return f
 
     @staticmethod
     def first(futures, clb_executor=None):
         if not futures:
             raise TypeError("Future.first() got empty sequence")
 
-        p = Promise(clb_executor)
-        for f in futures:
-            f.on_success(p.try_success)
-            f.on_failure(p.try_failure)
-        return p.future
+        f = Future(clb_executor)
+        for fi in futures:
+            fi.on_success(f._try_success)
+            fi.on_failure(f._try_failure)
+
+        return f
 
     @staticmethod
     def first_successful(futures, clb_executor=None):
         if not futures:
             raise TypeError("Future.first_successful() got empty sequence")
 
-        p = Promise(clb_executor)
+        f = Future(clb_executor)
         ctx = Future.comb_ctx()
         ctx.left = len(futures)
 
@@ -165,13 +166,13 @@ class Future(FutureCoreCallbacks):
             with ctx.lock:
                 ctx.left -= 1
                 if not ctx.left:
-                    p.failure(ex)
+                    f._failure(ex)
 
-        for f in futures:
-            f.on_success(p.success)
-            f.on_failure(on_fail)
+        for fi in futures:
+            fi.on_success(f._success)
+            fi.on_failure(on_fail)
 
-        return p.future
+        return f
 
     @staticmethod
     def reduce(fun, futures, *vargs, executor=None, clb_executor=None):
@@ -185,54 +186,16 @@ class Future(FutureCoreCallbacks):
             def __init__(self, cf, clb_executor=None):
                 Future.__init__(self, clb_executor)
                 self.cf = cf
-                self.cf.add_done_callback(self._complete)
+                self.cf.add_done_callback(self._cf_complete)
 
             def cancel(self):
                 Future.cancel(self)
                 self.cf.cancel()
 
-            def _complete(self, f):
-                try:
-                    self._success(f.result())
-                except Exception as ex:
-                    self._failure(ex)
+            def _cf_complete(self, f):
+                self._complete(f.result)
 
         return CFuture(cf, clb_executor)
-
-
-class Promise(object):
-    def __init__(self, clb_executor=None):
-        self._future = Future(clb_executor)
-
-    def complete(self, fun, *vargs, **kwargs):
-        try:
-            self.success(fun(*vargs, **kwargs))
-        except Exception as ex:
-            self.failure(ex)
-
-    def success(self, result):
-        self._future._success(result)
-
-    def try_success(self, result):
-        return self._future._try_success(result)
-
-    def failure(self, exception):
-        self._future._failure(exception)
-
-    def try_failure(self, exception):
-        self._future._try_failure(exception)
-
-    @property
-    def is_completed(self):
-        return self._future.is_completed
-
-    @property
-    def is_cancelled(self):
-        return self._future.is_cancelled
-
-    @property
-    def future(self):
-        return self._future
 
 
 class SynchronousExecutor(object):

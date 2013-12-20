@@ -1,8 +1,8 @@
 from rx.futures import *
-import unittest
-import functools
 from concurrent.futures import ThreadPoolExecutor
+import functools
 import time
+import unittest
 
 
 class PromiseTest(unittest.TestCase):
@@ -48,6 +48,7 @@ class PromiseTest(unittest.TestCase):
     def testCompleteFailure(self):
         def f():
             raise ArithmeticError()
+
         p = Promise()
         p.complete(f)
         self.assertRaises(ArithmeticError, p.future.result)

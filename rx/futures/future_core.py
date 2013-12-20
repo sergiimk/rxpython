@@ -44,6 +44,18 @@ class FutureCore(object):
         assert (isinstance(exception, BaseException))
         return self._try_set_result(FutureState.failure, exception)
 
+    #thread: executor
+    def _complete(self, fun, *vargs, **kwargs):
+        if not self._try_complete(fun, *vargs, **kwargs):
+            raise IllegalStateError("result was already set")
+
+    #thread: executor
+    def _try_complete(self, fun, *vargs, **kwargs):
+        try:
+            return self._try_success(fun(*vargs, **kwargs))
+        except Exception as ex:
+            return self._try_failure(ex)
+
     #thread executor
     def _try_set_result(self, state, value):
         with self._mutex:

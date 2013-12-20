@@ -1,5 +1,5 @@
-from rx.executors import ThreadPoolExecutor
-from rx.futures import Future, CancelledError
+from rx.executors import *
+from rx.futures import *
 import time
 import math
 import functools

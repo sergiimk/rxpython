@@ -1,4 +1,4 @@
-from ..futures import Future
+from rx.futures import Future
 from concurrent.futures import ThreadPoolExecutor as TPX
 from concurrent.futures import ProcessPoolExecutor as PPX
 
@@ -8,7 +8,7 @@ class ThreadPoolExecutor(TPX):
         cf = TPX.submit(self, fn, *args, **kwargs)
         return Future.from_concurrent_future(cf)
 
-    def execute(self, fn, *args, **kwargs) -> Future:
+    def execute(self, fn, *args, **kwargs):
         return self.submit(fn, *args, **kwargs)
 
 
@@ -17,5 +17,5 @@ class ProcessPoolExecutor(PPX):
         cf = PPX.submit(self, fn, *args, **kwargs)
         return Future.from_concurrent_future(cf)
 
-    def execute(self, fn, *args, **kwargs) -> Future:
+    def execute(self, fn, *args, **kwargs):
         return self.submit(fn, *args, **kwargs)
