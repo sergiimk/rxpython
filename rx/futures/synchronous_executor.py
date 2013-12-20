@@ -3,7 +3,7 @@ from .future import Future
 
 class SynchronousExecutor(object):
     @staticmethod
-    def execute(fn, *args, **kwargs):
+    def submit(fn, *args, **kwargs):
         try:
             return Future.successful(fn(*args, **kwargs))
         except Exception as ex:

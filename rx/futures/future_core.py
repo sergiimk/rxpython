@@ -1,5 +1,6 @@
-from .config import ON_UNHANDLED_FAILURE
+from .config import Default
 from threading import Condition
+from concurrent.futures import CancelledError
 
 
 class IllegalStateError(Exception):
@@ -10,6 +11,7 @@ class FutureState(object):
     in_progress = 0
     success = 1
     failure = -1
+    cancelled = -2
 
 
 class FutureCore(object):
@@ -17,13 +19,12 @@ class FutureCore(object):
         self._mutex = Condition()
         self._state = FutureState.in_progress
         self._value = None
-        self._cancel = False
         self._failure_handled = False
 
     def __del__(self):
         with self._mutex:
             if self._state == FutureState.failure and not self._failure_handled:
-                ON_UNHANDLED_FAILURE(self._value)
+                Default.UNHANDLED_FAILURE_CALLBACK(self._value)
 
     def _success(self, result):
         if not self._try_success(result):
@@ -52,6 +53,8 @@ class FutureCore(object):
 
     def _try_set_result(self, state, value):
         with self._mutex:
+            if self._state == FutureState.cancelled:
+                return True
             if self._state:
                 return False
             self._state = state
@@ -72,11 +75,17 @@ class FutureCore(object):
     @property
     def is_cancelled(self):
         with self._mutex:
-            return self._cancel
+            return self._state == FutureState.cancelled
 
     def cancel(self):
         with self._mutex:
-            self._cancel = True
+            if self._state != FutureState.in_progress:
+                return False
+            self._state = FutureState.cancelled
+            self._value = CancelledError("Future was cancelled")
+            self._mutex.notify_all()
+            self._on_result_set()
+            return True
 
     def wait(self, timeout=None):
         with self._mutex:
@@ -90,10 +99,23 @@ class FutureCore(object):
                 self._mutex.wait(timeout)
             if not self._state:
                 raise TimeoutError()
+            if self._state == FutureState.cancelled:
+                raise self._value
             if self._state == FutureState.failure:
                 self._failure_handled = True
                 raise self._value
             return self._value
+
+    def exception(self, timeout=None):
+        with self._mutex:
+            if not self._state:
+                self._mutex.wait(timeout)
+            if not self._state:
+                raise TimeoutError()
+            if self._state == FutureState.failure or self._state == FutureState.cancelled:
+                self._failure_handled = True
+                return self._value
+            return None
 
 
 class FutureCoreCompleted(object):
@@ -103,7 +125,7 @@ class FutureCoreCompleted(object):
         self.is_cancelled = False
 
     def cancel(self):
-        self.is_cancelled = True
+        return False
 
     def wait(self, timeout=None):
         return True
@@ -113,7 +135,13 @@ class FutureCoreSuccess(FutureCoreCompleted):
     def result(self, timeout=None):
         return self._value
 
+    def exception(self, timeout=None):
+        return None
+
 
 class FutureCoreFailure(FutureCoreCompleted):
     def result(self, timeout=None):
         raise self._value
+
+    def exception(self, timeout=None):
+        return self._value

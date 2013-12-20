@@ -11,18 +11,19 @@ def log_to_stderr(ex):
     except:
         pass
 
-# Called when failure of the future was not handled by any callback
-# This includes exceptions in on_success and on_failure callbacks
-ON_UNHANDLED_FAILURE = log_to_stderr
 
-# Default executor for future callbacks
-DEFAULT_CALLBACK_EXECUTOR = None
+class Default(object):
+    # Called when failure of the future was not handled by any callback
+    # This includes exceptions in on_success and on_failure callbacks
+    UNHANDLED_FAILURE_CALLBACK = log_to_stderr
 
+    # Default executor for future callbacks
+    CALLBACK_EXECUTOR = None
 
-def get_default_callback_executor():
-    global DEFAULT_CALLBACK_EXECUTOR
-    if not DEFAULT_CALLBACK_EXECUTOR:
-        from .synchronous_executor import Synchronous
+    @staticmethod
+    def get_callback_executor():
+        if not Default.CALLBACK_EXECUTOR:
+            from .synchronous_executor import Synchronous
 
-        DEFAULT_CALLBACK_EXECUTOR = Synchronous
-    return DEFAULT_CALLBACK_EXECUTOR
+            Default.CALLBACK_EXECUTOR = Synchronous
+        return Default.CALLBACK_EXECUTOR

@@ -5,34 +5,75 @@ import time
 import unittest
 
 
-class PromiseTest(unittest.TestCase):
+class FutureCoreTest(unittest.TestCase):
     def setUp(self):
         self.executor = ThreadPoolExecutor(max_workers=1)
 
-    def testSucceeded(self):
+    def testResultSucceeded(self):
         p = Promise()
         self.assertFalse(p.is_completed)
+        self.assertFalse(p.is_cancelled)
 
         p.success(10)
         self.assertTrue(p.is_completed)
+        self.assertFalse(p.is_cancelled)
         self.assertFalse(p.try_success(15))
 
         f = p.future
         self.assertTrue(f.is_completed)
+        self.assertFalse(f.is_cancelled)
 
         self.assertEqual(10, f.result())
 
-    def testFailed(self):
+    def testResultFailed(self):
         p = Promise()
 
         p.failure(TypeError())
+        self.assertFalse(p.is_cancelled)
         self.assertTrue(p.is_completed)
 
         f = p.future
         self.assertTrue(f.is_completed)
+        self.assertFalse(f.is_cancelled)
         self.assertFalse(p.try_failure(TimeoutError()))
 
         self.assertRaises(TypeError, f.result)
+
+    def testResultCancelled(self):
+        p = Promise()
+
+        f = p.future
+        self.assertTrue(f.cancel())
+
+        self.assertTrue(p.is_cancelled)
+        self.assertTrue(p.is_completed)
+
+        self.assertTrue(f.is_cancelled)
+        self.assertTrue(f.is_completed)
+
+        self.assertTrue(p.try_success(123))
+        self.assertTrue(p.try_failure(TimeoutError()))
+        self.assertFalse(f.cancel())
+
+        self.assertRaises(CancelledError, f.result)
+
+    def testExceptionSucceeded(self):
+        p = Promise()
+        p.success(10)
+        f = p.future
+        self.assertIsNone(f.exception())
+
+    def testExceptionFailed(self):
+        p = Promise()
+        p.failure(TypeError())
+        f = p.future
+        self.assertIsInstance(f.exception(), TypeError)
+
+    def testExceptionCancelled(self):
+        p = Promise()
+        f = p.future
+        f.cancel()
+        self.assertIsInstance(f.exception(), CancelledError)
 
     def testResultAlreadyAssigned(self):
         p = Promise()

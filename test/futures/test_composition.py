@@ -5,72 +5,12 @@ import functools
 import unittest
 
 
-class FutureTest(unittest.TestCase):
+class FutureCompositionTest(unittest.TestCase):
     def setUp(self):
         self.executor = ThreadPoolExecutor(max_workers=2)
 
     def tearDown(self):
         self.executor.shutdown()
-
-    def testSuccessCallback(self):
-        p = Promise()
-        f = p.future
-        self.clb_called = False
-
-        def on_success(res):
-            self.clb_called = res
-
-        f.on_success(on_success)
-        f.on_failure(lambda _: self.fail('failure callback called on success'))
-
-        self.assertFalse(self.clb_called)
-        p.success(123)
-        self.assertEqual(123, self.clb_called)
-
-    def testFailureCallback(self):
-        p = Promise()
-        f = p.future
-        self.clb_called = False
-
-        def on_failure(ex):
-            self.assertIsInstance(ex, TypeError)
-            self.clb_called = True
-
-        f.on_failure(on_failure)
-        f.on_success(lambda _: self.fail('success callback called on failure'))
-
-        self.assertFalse(self.clb_called)
-        p.failure(TypeError())
-        self.assertTrue(self.clb_called)
-
-    def testCallbackCalledAfterCompletion(self):
-        p = Promise()
-        f = p.future
-        self.clb_called = False
-
-        p.success(123)
-
-        def on_success(res):
-            self.clb_called = res
-
-        f.on_success(on_success)
-
-        self.assertEqual(123, self.clb_called)
-
-    def testCancellation(self):
-        p = Promise()
-        f = p.future
-
-        self.assertFalse(p.is_cancelled)
-        self.assertFalse(f.is_cancelled)
-
-        f.cancel()
-
-        self.assertTrue(p.is_cancelled)
-        self.assertTrue(f.is_cancelled)
-
-        p.failure(CancelledError())
-        self.assertRaises(CancelledError, f.result)
 
     def testRecover(self):
         p = Promise()
@@ -99,7 +39,7 @@ class FutureTest(unittest.TestCase):
         self.assertRaises(TypeError, f3.result)
 
     def testThenSuccess(self):
-        def auth(): return self._success_after(0.01, True)
+        def auth(): return Future.successful(True)
 
         def request(x): return self._success_after(0.01, x * x)
 

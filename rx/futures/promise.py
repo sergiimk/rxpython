@@ -56,7 +56,7 @@ class Promise(object):
         Returns:
             True if future value was set and False if it was already set before.
         """
-        self._future._try_failure(exception)
+        return self._future._try_failure(exception)
 
     def complete(self, fun, *vargs, **kwargs):
         """Executes provided function and sets future value or exception if function raises.
