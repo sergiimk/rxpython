@@ -9,7 +9,7 @@ class PromiseTest(unittest.TestCase):
     def setUp(self):
         self.executor = ThreadPoolExecutor(max_workers=1)
 
-    def testAlreadySucceeded(self):
+    def testSucceeded(self):
         p = Promise()
         self.assertFalse(p.is_completed)
 
@@ -22,7 +22,7 @@ class PromiseTest(unittest.TestCase):
 
         self.assertEqual(10, f.result())
 
-    def testAlreadyFailed(self):
+    def testFailed(self):
         p = Promise()
 
         p.failure(TypeError())
@@ -33,6 +33,12 @@ class PromiseTest(unittest.TestCase):
         self.assertFalse(p.try_failure(TimeoutError()))
 
         self.assertRaises(TypeError, f.result)
+
+    def testResultAlreadyAssigned(self):
+        p = Promise()
+        p.success(123)
+        self.assertRaises(IllegalStateError, lambda: p.success(321))
+        self.assertRaises(IllegalStateError, lambda: p.failure(TypeError()))
 
     def testCompleteSuccess(self):
         p = Promise()
