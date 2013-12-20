@@ -2,11 +2,11 @@ TODO
 ====
 
 * Lightweight successful/failed futures
-* Debugging
+* asyncio integration
+* Observables
 * Traceability
 * Debugging output stream
 * Graphviz task graphs
-* Observables
 
 Interface differences
 -----------
