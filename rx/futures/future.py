@@ -204,7 +204,7 @@ class Future(FutureCoreCallbacks):
                     f._failure(ex)
 
         for fi in futures:
-            fi.on_success(f._success)
+            fi.on_success(f._try_success)
             fi.on_failure(on_fail)
 
         return f

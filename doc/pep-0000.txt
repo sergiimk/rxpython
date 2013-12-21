@@ -388,6 +388,108 @@ executor, in many cases all overhead is avoided using lightweight
 read-only future objects for representing successful and
 failed futures.
 
+==============
+Usage examples
+==============
+
+Completing futures with promises
+--------------------------------
+
+::
+
+	from rx.futures import Promise
+	from threading import Thread
+	import time
+
+	def request_blocking(request):
+		time.speep(10)
+		return request
+
+	def request_async(request):
+		p = Promise()
+		t = Thread(target=lambda: p.success(request_blocking(request)))
+		t.start()
+		return p.future
+
+	f = request_async("echo")
+	f.on_success(lambda resp: print("response: " + resp))
+	f.on_failure(lambda ex: print("request failed"))
+
+Computations
+------------
+
+::
+
+	from rx.futures import Future
+	from rx.executors import ThreadPoolExecutor
+
+	with ThreadPoolExecutor(10) as tp:
+		def sqr(x):
+			return x * x
+
+		fsquares = [tp.submit(sqr, v) for v in range(10)]
+		fsum = Future.all(fsquares).map(sum)
+
+		print(fsum.result())
+
+Chaining requests
+-----------------
+
+::
+
+	from rx.futures import Future
+
+	def authenticate_async(login, pwd):
+		return Future.successful(True)
+
+	def request_async(request):
+		return Future.successful(request)
+
+	fauth = authenticate_async('john', 'swordfish')
+	frequest = fauth.then(lambda: request_async('echo'))
+
+	frequest.on_success(lambda resp: print("auth and request successful: " + resp))
+	frequest.on_failure(lambda ex: print("auth or request failed"))
+
+
+Fallbacks
+---------
+
+::
+
+	from rx.futures import Future
+
+	def connect_ssl():
+		return Future.failed(SocketError())
+
+	def connect_plain():
+		return Future.successful('socket')
+
+	fconnection = connect_ssl().fallback(connect_plain)
+
+Hedged requests
+---------------
+
+::
+
+	from rx.futures import Future
+	from rx.executors import ThreadPoolExecutor
+	import random
+	import time
+
+	def request(ip):
+		time.sleep(random.random())
+		if random.choice([True, False]):
+			return "ok"
+		raise Exception("fail")
+
+	with ThreadPoolExecutor(10) as tp:
+		IPs = ['ip1', 'ip2', 'ip3', 'ip4', 'ip5']
+		futures = [tp.submit(request, ip) for ip in IPs]
+		fresponse = Future.first_successful(futures)
+
+		print(fresponse.result())
+
 ======================
 Backward compatibility
 ======================
@@ -402,7 +504,7 @@ Executor interface reduced to:
 	class Executor:
 		def submit(fn, *args, **kwargs) -> Future
 
-Future interface:
+Future interface differences:
 
 ``cancel()``
 
@@ -440,7 +542,7 @@ Future interface:
 
 	Methods for future completion removed in favour of using `Promise`.
 
-Module functions:
+Module functions differences:
 
 ``wait()``
 ``as_completed()``
@@ -448,6 +550,13 @@ Module functions:
 	Functions removed to encourage use of future composition.
 	`Future.result()` and `Future.exception()` are only ways
 	to drop `Future` monad.
+
+Concrete implementations of executor are considered to be beyond the 
+scope of ``concurrent.futures`` module, but for backward compatibility
+implementations of ``ThreadPoolExecutor`` and ``ProcessPoolExecutor``
+remain and return new futures, but will be deprecated. Other modules
+such as ``threading`` and ``multipocessing`` are more logical place
+for this functionality.
 
 ==========
 References
