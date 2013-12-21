@@ -122,7 +122,7 @@ class FutureCompositionTest(FutureTestBase):
 
     def test_reduce(self):
         futures = [self.success_after(0.01, i) for i in range(5)]
-        fsum = Future.reduce(futures, lambda x, y: x + y)
+        fsum = Future.reduce(futures, lambda x, y: x + y, 0)
         self.assertEqual(sum(range(5)), fsum.result(timeout=10))
 
 

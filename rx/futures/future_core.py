@@ -15,10 +15,13 @@ class FutureState(object):
 
 
 class FutureBase(object):
-    pass
+    """Marker class for allowing isinstance checks
+    in presence of lightweight future hierarchy."""
 
 
 class FutureCore(FutureBase):
+    """Encapsulates Future state."""
+
     def __init__(self):
         self._mutex = Condition()
         self._state = FutureState.in_progress
@@ -162,6 +165,8 @@ class FutureCore(FutureBase):
 
 
 class FutureCoreCompleted(FutureBase):
+    """Base class for lightweight successful and failed futures."""
+
     def __init__(self, value):
         self._value = value
         self.is_completed = True

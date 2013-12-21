@@ -7,6 +7,8 @@ from .config import Default
 
 
 class FutureCoreCallbacks(FutureCore):
+    """Implements Future callbacks behavior."""
+
     def __init__(self, clb_executor=None):
         FutureCore.__init__(self)
         self._success_clb = []
