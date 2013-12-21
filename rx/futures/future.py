@@ -41,7 +41,7 @@ class Future(FutureCoreCallbacks, FutureExtensions):
 
 
 class FutureSuccess(FutureCoreCallbacksSuccess, FutureExtensions):
-    """Lightweight class representing successfully completed future, enabling many optimizations.."""
+    """Lightweight class representing successfully completed future, enabling many optimizations."""
 
     def recover(self, fun_ex, executor=None):
         return self
