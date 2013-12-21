@@ -14,6 +14,12 @@ class FutureCoreCallbacks(FutureCore):
         self._executor = clb_executor or Default.get_callback_executor()
 
     def on_success(self, fun_res, executor=None):
+        """Specified function will be called upon successful future completion.
+
+        Args:
+            fun_res: function that accepts one result argument.
+            executor: context to run callback in (default - Synchronous).
+        """
         assert callable(fun_res), "Future.on_success expects callable"
         with self._mutex:
             if self._state == FutureState.success:
@@ -22,6 +28,12 @@ class FutureCoreCallbacks(FutureCore):
                 self._success_clb.append((fun_res, executor))
 
     def on_failure(self, fun_ex, executor=None):
+        """Specified function will be called upon future failure.
+
+        Args:
+            fun_ex: function that accepts one exception argument.
+            executor: context to run callback in (default - Synchronous).
+        """
         assert callable(fun_ex) or fun_ex is None, "Future.on_failure expects callable or None"
         with self._mutex:
             self._failure_handled = True

@@ -2,7 +2,11 @@ from .future import Future
 
 
 class Promise(object):
-    """Promise is an object which can be completed with a value or failed with an exception.
+    """Promise is an only intended way of creating Future.
+
+    It is intended to be inaccessible to clients of services which
+    provide async operations and is the only right way to set result
+    to the future given to client.
     """
 
     def __init__(self, clb_executor=None):
@@ -59,7 +63,8 @@ class Promise(object):
         return self._future._try_failure(exception)
 
     def complete(self, fun, *vargs, **kwargs):
-        """Executes provided function and sets future value or exception if function raises.
+        """Executes provided function and sets future value from result
+        or exception if function raises.
 
         Args:
             fun: Function to be executed synchronously to set future result.
@@ -70,7 +75,8 @@ class Promise(object):
         self._future._complete(fun, *vargs, **kwargs)
 
     def try_complete(self, fun, *vargs, **kwargs):
-        """Executes provided function and sets future value or exception if function raises.
+        """Executes provided function and sets future value from result
+        or exception if function raises.
 
         Args:
             fun: Function to be executed synchronously to set future result.
@@ -82,7 +88,7 @@ class Promise(object):
 
     @property
     def is_completed(self):
-        """Returns True if the future is completed."""
+        """Returns True if associated future is completed or cancelled."""
         return self._future.is_completed
 
     @property

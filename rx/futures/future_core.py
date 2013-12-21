@@ -14,7 +14,11 @@ class FutureState(object):
     cancelled = -2
 
 
-class FutureCore(object):
+class FutureBase(object):
+    pass
+
+
+class FutureCore(FutureBase):
     def __init__(self):
         self._mutex = Condition()
         self._state = FutureState.in_progress
@@ -69,15 +73,22 @@ class FutureCore(object):
 
     @property
     def is_completed(self):
+        """Returns True if future is completed or cancelled."""
         with self._mutex:
             return self._state != FutureState.in_progress
 
     @property
     def is_cancelled(self):
+        """Returns True if the future cancellation was requested."""
         with self._mutex:
             return self._state == FutureState.cancelled
 
     def cancel(self):
+        """Requests cancellation of future.
+
+        Returns:
+            True if future was not yet completed or cancelled.
+        """
         with self._mutex:
             if self._state != FutureState.in_progress:
                 return False
@@ -88,12 +99,33 @@ class FutureCore(object):
             return True
 
     def wait(self, timeout=None):
+        """Blocking wait for future to complete.
+
+        Args:
+            timeout: time in seconds to wait for completion (default - infinite).
+
+        Returns:
+            True if future completes within timeout.
+        """
         with self._mutex:
             if not self._state:
                 self._mutex.wait(timeout)
             return self._state != FutureState.in_progress
 
     def result(self, timeout=None):
+        """Blocking wait for future result.
+
+        Args:
+            timeout: time in seconds to wait for completion (default - infinite).
+
+        Returns:
+            Future result value.
+
+        Raises:
+            TimeoutError: if future does not complete within timeout.
+            CancelledError: if future cancellation was requested,
+            Exception: if future was failed.
+        """
         with self._mutex:
             if not self._state:
                 self._mutex.wait(timeout)
@@ -107,6 +139,17 @@ class FutureCore(object):
             return self._value
 
     def exception(self, timeout=None):
+        """Blocking wait for future exception.
+
+        Args:
+            timeout: time in seconds to wait for completion (default - infinite).
+
+        Returns:
+            Exception future failed with, including CancelledError, or None if succeeded.
+
+        Raises:
+            TimeoutError: if future does not complete within timeout.
+        """
         with self._mutex:
             if not self._state:
                 self._mutex.wait(timeout)
@@ -118,7 +161,7 @@ class FutureCore(object):
             return None
 
 
-class FutureCoreCompleted(object):
+class FutureCoreCompleted(FutureBase):
     def __init__(self, value):
         self._value = value
         self.is_completed = True
