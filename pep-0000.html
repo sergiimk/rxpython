@@ -394,7 +394,7 @@ failed futures.</p>
 <div class="section" id="completing-futures-with-promises">
 <h2><a class="toc-backref" href="#id12">Completing futures with promises</a></h2>
 <pre class="literal-block">
-from rx.futures import Promise
+from concurrent.futures import Promise
 from threading import Thread
 import time
 
@@ -416,8 +416,8 @@ f.on_failure(lambda ex: print(&quot;request failed&quot;))
 <div class="section" id="computations">
 <h2><a class="toc-backref" href="#id13">Computations</a></h2>
 <pre class="literal-block">
-from rx.futures import Future
-from rx.executors import ThreadPoolExecutor
+from concurrent.futures import Future
+from concurrent.executors import ThreadPoolExecutor
 
 with ThreadPoolExecutor(10) as tp:
         def sqr(x):
@@ -432,7 +432,7 @@ with ThreadPoolExecutor(10) as tp:
 <div class="section" id="chaining-requests">
 <h2><a class="toc-backref" href="#id14">Chaining requests</a></h2>
 <pre class="literal-block">
-from rx.futures import Future
+from concurrent.futures import Future
 
 def authenticate_async(login, pwd):
         return Future.successful(True)
@@ -450,7 +450,7 @@ frequest.on_failure(lambda ex: print(&quot;auth or request failed&quot;))
 <div class="section" id="fallbacks">
 <h2><a class="toc-backref" href="#id15">Fallbacks</a></h2>
 <pre class="literal-block">
-from rx.futures import Future
+from concurrent.futures import Future
 
 def connect_ssl():
         return Future.failed(SocketError())
@@ -464,8 +464,8 @@ fconnection = connect_ssl().fallback(connect_plain)
 <div class="section" id="hedged-requests">
 <h2><a class="toc-backref" href="#id16">Hedged requests</a></h2>
 <pre class="literal-block">
-from rx.futures import Future
-from rx.executors import ThreadPoolExecutor
+from concurrent.futures import Future
+from concurrent.executors import ThreadPoolExecutor
 import random
 import time
 

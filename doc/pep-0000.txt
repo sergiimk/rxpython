@@ -397,7 +397,7 @@ Completing futures with promises
 
 ::
 
-	from rx.futures import Promise
+	from concurrent.futures import Promise
 	from threading import Thread
 	import time
 
@@ -420,8 +420,8 @@ Computations
 
 ::
 
-	from rx.futures import Future
-	from rx.executors import ThreadPoolExecutor
+	from concurrent.futures import Future
+	from concurrent.executors import ThreadPoolExecutor
 
 	with ThreadPoolExecutor(10) as tp:
 		def sqr(x):
@@ -437,7 +437,7 @@ Chaining requests
 
 ::
 
-	from rx.futures import Future
+	from concurrent.futures import Future
 
 	def authenticate_async(login, pwd):
 		return Future.successful(True)
@@ -457,7 +457,7 @@ Fallbacks
 
 ::
 
-	from rx.futures import Future
+	from concurrent.futures import Future
 
 	def connect_ssl():
 		return Future.failed(SocketError())
@@ -472,8 +472,8 @@ Hedged requests
 
 ::
 
-	from rx.futures import Future
-	from rx.executors import ThreadPoolExecutor
+	from concurrent.futures import Future
+	from concurrent.executors import ThreadPoolExecutor
 	import random
 	import time
 
