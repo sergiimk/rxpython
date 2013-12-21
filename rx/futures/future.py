@@ -8,6 +8,12 @@ import functools
 
 
 class Future(FutureCoreCallbacks):
+    """Client-facing object returned by systems which expose
+    asynchronous APIs. Main way to interact with Future is to
+    use callbacks and combination methods to chain computations
+    on top of result that is yet to be returned.
+    """
+
     @staticmethod
     def successful(result=None, clb_executor=None):
         """Returns successfully completed future.
