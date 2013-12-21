@@ -324,8 +324,8 @@ Interface differences
 
 Executor interface reduced to:
 
-class Executor:
-	def submit(fn, *args, **kwargs) -> Future
+	class Executor:
+		def submit(fn, *args, **kwargs) -> Future
 
 Future interface:
 
@@ -372,7 +372,7 @@ Module functions:
 
 Functions removed to encourage use of future composition.
 `Future.result()` and `Future.exception()` are only ways
-to drop out of `Future` monad.
+to drop `Future` monad.
 
 References
 ==========
