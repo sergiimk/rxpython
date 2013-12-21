@@ -19,7 +19,7 @@ enables reactive programming in Python. It provides means for
 chaining and combining asynchronous computations without blocking 
 to wait for ``Future`` result, offers combination methods for futures, 
 allows to control execution context of future calbacks and provides
-simpler API for crating and exposing futures in other systems.
+simpler API for creating and exposing futures in other systems.
 
 ==========
 Motivation
@@ -90,7 +90,7 @@ Proposed package defines following abstractions:
   of systems exposing async operations.
 
 - ``Future`` - represents result of async operation which is 
-  expected to be completed by some ``Executor``.
+  expected to be completed by some async system.
 
 - ``Promise`` - represents a ``Future`` on the side of the
   async system, it is not exposed to client and is the only
@@ -104,15 +104,15 @@ expose asynchronous APIs. Main way to interact with ``Futures``
 is to use callbacks and combination methods to chain computations
 on top of result that is yet to be returned.
 
-``@property is_completed``
+``@property is_completed -> bool``
 
 	Returns True if future is completed or cancelled.
 
-``@property is_cancelled``
+``@property is_cancelled -> bool``
 
 	Returns True if the future cancellation was requested.
 
-``cancel()``
+``cancel() -> bool``
 
 	Requests cancellation of future. Returns True if future was not
 	yet completed or cancelled.
@@ -129,13 +129,13 @@ on top of result that is yet to be returned.
 	fun_ex: function that accepts one exception argument.
 	executor: context to run callback in (default - Synchronous).
 
-``wait(timeout=None)``
+``wait(timeout=None) -> bool``
 
 	Blocking wait for future to complete. timeout - time in seconds
 	to wait for completion (default - infinite). Returns True if
 	future completes within timeout.
 
-``result(timeout=None)``
+``result(timeout=None) -> object``
 
 	Blocking wait for future result. timeout - time in seconds to wait
 	for completion (default - infinite). Returns Future result value.
@@ -148,7 +148,7 @@ on top of result that is yet to be returned.
 	This is one of few ways to drop Future monad, don't use unless it is
 	absolutely necessary, prefer future composition.
 
-``exception(timeout=None)``
+``exception(timeout=None) -> Exception``
 
 	Blocking wait for future exception. timeout: time in seconds to wait
 	for completion (default - infinite). Returns Exception future failed
@@ -158,19 +158,19 @@ on top of result that is yet to be returned.
 	This is one of few ways to drop Future monad, don't use unless it is
 	absolutely necessary, prefer future composition.
 
-``@staticmethod successful(result=None, clb_executor=None)``
+``@staticmethod successful(result=None, clb_executor=None) -> Future``
 
 	Returns successfully completed future. result - value to
 	complete future with, clb_executor - default Executor to
 	use for running callbacks (default - Synchronous).
 
-``@staticmethod failed(exception, clb_executor=None)``
+``@staticmethod failed(exception, clb_executor=None) -> Future``
 
 	Returns failed future. exception - Exception to set to future,
 	clb_executor - default Executor to use for running
 	callbacks (default - Synchronous).
 
-``@staticmethod completed(fun, *args, clb_executor=None)``
+``@staticmethod completed(fun, *args, clb_executor=None) -> Future``
 
 	Returns successful or failed future set from provided function.
 
@@ -188,15 +188,15 @@ and is the only right way to set result to the future given to client.
 	``Future.on_success()`` and ``Future.on_failure()`` callbacks
 	(default - Synchronous).
 
-``@property future``
+``@property future -> Future``
 
 	Returns associated future instance.
 
-``@property is_completed``
+``@property is_completed` -> bool`
 
 	Returns True if associated future is completed or cancelled.
 
-``@property is_cancelled``
+``@property is_cancelled -> bool``
 
 	Returns True if the future cancellation was requested by client.
 
@@ -205,7 +205,7 @@ and is the only right way to set result to the future given to client.
 	Completes associated future with provided value.
 	Raises ``IllegalStateError`` if future value was already set.
 
-``try_success(result)``
+``try_success(result) -> bool``
 
 	Completes associated future with provided value.
 	Returns True if future value was set and False if it was
@@ -216,7 +216,7 @@ and is the only right way to set result to the future given to client.
 	Completes associated future with provided exception.
 	Raises ``IllegalStateError`` if future value was already set.
 
-``try_failure(exception)``
+``try_failure(exception) -> bool``
 
 	Completes associated future with provided exception.
 	Returns True if future value was set and False if it was
@@ -228,7 +228,7 @@ and is the only right way to set result to the future given to client.
 	or exception if function raises.
 	Raises ``IllegalStateError`` if future value was already set.
 
-``try_complete(fun, *vargs, **kwargs)``
+``try_complete(fun, *vargs, **kwargs) -> bool``
 
 	Executes provided function and sets future value from result
 	or exception if function raises.
@@ -242,7 +242,7 @@ Composition methods allow you to make computations on ``Future``
 result without resorting to blocking waits. They also provide
 means for combining multiple different futures together.
 
-``recover(fun_ex, executor=None)``
+``recover(fun_ex, executor=None) -> Future``
 
 	Returns future that will contain result of original if it
 	completes successfully, or set from result of provided function
@@ -250,7 +250,7 @@ means for combining multiple different futures together.
 	parameter, executor - Executor to use when performing call to
 	function (default - Synchronous).
 
-``map(fun_res, executor=None)``
+``map(fun_res, executor=None) -> Future``
 
 	Returns future which will be set from result of applying
 	provided function to original future value. fun_res - function
@@ -258,7 +258,7 @@ means for combining multiple different futures together.
 	executor - Executor to use when performing call to
 	function (default - Synchronous).
 
-``then(future_fun, executor=None)``
+``then(future_fun, executor=None) -> Future``
 
 	Returns future which represents two futures chained one
 	after another. Failures are propagated from first future,
@@ -268,7 +268,7 @@ means for combining multiple different futures together.
 	(or Future instance directly), executor - Executor to use
 	when performing call to function (default - Synchronous).
 
-``fallback(future_fun, executor=None)``
+``fallback(future_fun, executor=None) -> Future``
 
 	Returns future that will contain result of original if
 	it completes successfully, or will be set from future
@@ -277,7 +277,7 @@ means for combining multiple different futures together.
 	fallback (or Future instance directly), executor - Executor
 	to use when performing call to function (default - Synchronous).
 
-``@staticmethod all(futures, clb_executor=None)``
+``@staticmethod all(futures, clb_executor=None) -> Future``
 
 	Transforms list of futures into one future that will contain
 	list of results. In case of any failure future will be failed
@@ -285,7 +285,7 @@ means for combining multiple different futures together.
 	to combine, clb_executor - default executor to use when running
 	new future's callbacks (default - Synchronous).
 
-``@staticmethod first(futures, clb_executor=None)``
+``@staticmethod first(futures, clb_executor=None) -> Future``
 
 	Returns future which will be set from result of first future
 	to complete, both successfully or with failure.
@@ -293,7 +293,7 @@ means for combining multiple different futures together.
 	executor to use when running new future's callbacks
 	(default - Synchronous).
 
-``@staticmethod first_successful(futures, clb_executor=None)``
+``@staticmethod first_successful(futures, clb_executor=None) -> Future``
 
 	Returns future which will be set from result of first
 	future to complete successfully, last detected error
@@ -302,7 +302,7 @@ means for combining multiple different futures together.
 	executor to use when running new future's callbacks
 	(default - Synchronous).
 
-``@staticmethod reduce(futures, fun, *vargs, executor=None, clb_executor=None)``
+``@staticmethod reduce(futures, fun, *vargs, executor=None, clb_executor=None) -> Future``
 
 	Returns future which will be set with reduced result of
 	all provided futures. In case of any failure future will
@@ -336,7 +336,7 @@ different executor explicitly.
 ``Executor`` contract expected by proposed package includes
 single method:
 
-``submit(fn, *args, **kwargs)``
+``submit(fn, *args, **kwargs) -> Future``
 
 	Schedules function for execution and return `Future`
 	representing pending result.
@@ -557,6 +557,15 @@ implementations of ``ThreadPoolExecutor`` and ``ProcessPoolExecutor``
 remain and return new futures, but will be deprecated. Other modules
 such as ``threading`` and ``multipocessing`` are more logical place
 for this functionality.
+
+===================
+Further development
+===================
+
+- ``Observable`` abstraction for asynchronous streams of data.
+- Future-based interface support in other modules (``threading``,
+  ``multiprocessing``, ``asyncio``).
+- Debugging facilities for tracing and graphing future chains.
 
 ==========
 References

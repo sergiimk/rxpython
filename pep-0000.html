@@ -35,46 +35,47 @@ to templates.  DO NOT USE THIS HTML FILE AS YOUR TEMPLATE!
 <div class="contents topic" id="contents">
 <p class="topic-title first">Contents</p>
 <ul class="simple">
-<li><a class="reference internal" href="#abstract" id="id1">Abstract</a></li>
-<li><a class="reference internal" href="#motivation" id="id2">Motivation</a><ul>
-<li><a class="reference internal" href="#proposed-solution" id="id3">Proposed solution</a></li>
+<li><a class="reference internal" href="#abstract" id="id3">Abstract</a></li>
+<li><a class="reference internal" href="#motivation" id="id4">Motivation</a><ul>
+<li><a class="reference internal" href="#proposed-solution" id="id5">Proposed solution</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#specification" id="id4">Specification</a><ul>
-<li><a class="reference internal" href="#future-core-interface" id="id5">Future core interface</a></li>
-<li><a class="reference internal" href="#promise-interface" id="id6">Promise interface</a></li>
-<li><a class="reference internal" href="#future-composition" id="id7">Future composition</a></li>
-<li><a class="reference internal" href="#executors" id="id8">Executors</a></li>
-<li><a class="reference internal" href="#unhandled-errors-policy" id="id9">Unhandled errors policy</a></li>
-<li><a class="reference internal" href="#performance-overhead" id="id10">Performance overhead</a></li>
+<li><a class="reference internal" href="#specification" id="id6">Specification</a><ul>
+<li><a class="reference internal" href="#future-core-interface" id="id7">Future core interface</a></li>
+<li><a class="reference internal" href="#promise-interface" id="id8">Promise interface</a></li>
+<li><a class="reference internal" href="#future-composition" id="id9">Future composition</a></li>
+<li><a class="reference internal" href="#executors" id="id10">Executors</a></li>
+<li><a class="reference internal" href="#unhandled-errors-policy" id="id11">Unhandled errors policy</a></li>
+<li><a class="reference internal" href="#performance-overhead" id="id12">Performance overhead</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#usage-examples" id="id11">Usage examples</a><ul>
-<li><a class="reference internal" href="#completing-futures-with-promises" id="id12">Completing futures with promises</a></li>
-<li><a class="reference internal" href="#computations" id="id13">Computations</a></li>
-<li><a class="reference internal" href="#chaining-requests" id="id14">Chaining requests</a></li>
-<li><a class="reference internal" href="#fallbacks" id="id15">Fallbacks</a></li>
-<li><a class="reference internal" href="#hedged-requests" id="id16">Hedged requests</a></li>
+<li><a class="reference internal" href="#usage-examples" id="id13">Usage examples</a><ul>
+<li><a class="reference internal" href="#completing-futures-with-promises" id="id14">Completing futures with promises</a></li>
+<li><a class="reference internal" href="#computations" id="id15">Computations</a></li>
+<li><a class="reference internal" href="#chaining-requests" id="id16">Chaining requests</a></li>
+<li><a class="reference internal" href="#fallbacks" id="id17">Fallbacks</a></li>
+<li><a class="reference internal" href="#hedged-requests" id="id18">Hedged requests</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#backward-compatibility" id="id17">Backward compatibility</a><ul>
-<li><a class="reference internal" href="#interface-differences" id="id18">Interface differences</a></li>
+<li><a class="reference internal" href="#backward-compatibility" id="id19">Backward compatibility</a><ul>
+<li><a class="reference internal" href="#interface-differences" id="id20">Interface differences</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#references" id="id19">References</a></li>
+<li><a class="reference internal" href="#further-development" id="id21">Further development</a></li>
+<li><a class="reference internal" href="#references" id="id22">References</a></li>
 </ul>
 </div>
 <div class="section" id="abstract">
-<h1><a class="toc-backref" href="#id1">Abstract</a></h1>
+<h1><a class="toc-backref" href="#id3">Abstract</a></h1>
 <p>This is a proposal for API improvement of <tt class="docutils literal">concurrent.futures</tt> which
 enables reactive programming in Python. It provides means for
 chaining and combining asynchronous computations without blocking
 to wait for <tt class="docutils literal">Future</tt> result, offers combination methods for futures,
 allows to control execution context of future calbacks and provides
-simpler API for crating and exposing futures in other systems.</p>
+simpler API for creating and exposing futures in other systems.</p>
 </div>
 <div class="section" id="motivation">
-<h1><a class="toc-backref" href="#id2">Motivation</a></h1>
+<h1><a class="toc-backref" href="#id4">Motivation</a></h1>
 <p><tt class="docutils literal">Future</tt> is a well-established facility in many modern languages
 for representing asynchronous computations. It is also notable
 that many languages have converged into very similar monadic
@@ -99,7 +100,7 @@ implementations of <tt class="docutils literal">Futures</tt>. This can be contri
 underdeveloped state of <tt class="docutils literal">concurrent.futures</tt> which should
 provide the unified implementation.</p>
 <div class="section" id="proposed-solution">
-<h2><a class="toc-backref" href="#id3">Proposed solution</a></h2>
+<h2><a class="toc-backref" href="#id5">Proposed solution</a></h2>
 <p>Proposed imporvements to <tt class="docutils literal">concurrent.futures</tt> API include:</p>
 <ul class="simple">
 <li>Futures composability - extensive set of methods for combining
@@ -123,7 +124,7 @@ This topic was not addressed by original implementation at all.</li>
 </div>
 </div>
 <div class="section" id="specification">
-<h1><a class="toc-backref" href="#id4">Specification</a></h1>
+<h1><a class="toc-backref" href="#id6">Specification</a></h1>
 <p>Proposed package defines following abstractions:</p>
 <ul class="simple">
 <li><tt class="docutils literal">Executor</tt> - a contract for scheduling callbacks. It is
@@ -131,24 +132,24 @@ only required for callbacks scheduling and does not
 intended to pose any restrictions on implementations
 of systems exposing async operations.</li>
 <li><tt class="docutils literal">Future</tt> - represents result of async operation which is
-expected to be completed by some <tt class="docutils literal">Executor</tt>.</li>
+expected to be completed by some async system.</li>
 <li><tt class="docutils literal">Promise</tt> - represents a <tt class="docutils literal">Future</tt> on the side of the
 async system, it is not exposed to client and is the only
 correct way of setting result to the <tt class="docutils literal">Future</tt>.</li>
 </ul>
 <div class="section" id="future-core-interface">
-<h2><a class="toc-backref" href="#id5">Future core interface</a></h2>
+<h2><a class="toc-backref" href="#id7">Future core interface</a></h2>
 <p><tt class="docutils literal">Future</tt> is a client-facing object returned by systems which
 expose asynchronous APIs. Main way to interact with <tt class="docutils literal">Futures</tt>
 is to use callbacks and combination methods to chain computations
 on top of result that is yet to be returned.</p>
-<p><tt class="docutils literal">&#64;property is_completed</tt></p>
+<p><tt class="docutils literal">&#64;property is_completed <span class="pre">-&gt;</span> bool</tt></p>
 <blockquote>
 Returns True if future is completed or cancelled.</blockquote>
-<p><tt class="docutils literal">&#64;property is_cancelled</tt></p>
+<p><tt class="docutils literal">&#64;property is_cancelled <span class="pre">-&gt;</span> bool</tt></p>
 <blockquote>
 Returns True if the future cancellation was requested.</blockquote>
-<p><tt class="docutils literal">cancel()</tt></p>
+<p><tt class="docutils literal">cancel() <span class="pre">-&gt;</span> bool</tt></p>
 <blockquote>
 Requests cancellation of future. Returns True if future was not
 yet completed or cancelled.</blockquote>
@@ -162,12 +163,12 @@ executor - context to run callback in (default - Synchronous).</blockquote>
 Specified function will be called upon future failure.
 fun_ex: function that accepts one exception argument.
 executor: context to run callback in (default - Synchronous).</blockquote>
-<p><tt class="docutils literal">wait(timeout=None)</tt></p>
+<p><tt class="docutils literal">wait(timeout=None) <span class="pre">-&gt;</span> bool</tt></p>
 <blockquote>
 Blocking wait for future to complete. timeout - time in seconds
 to wait for completion (default - infinite). Returns True if
 future completes within timeout.</blockquote>
-<p><tt class="docutils literal">result(timeout=None)</tt></p>
+<p><tt class="docutils literal">result(timeout=None) <span class="pre">-&gt;</span> object</tt></p>
 <blockquote>
 <p>Blocking wait for future result. timeout - time in seconds to wait
 for completion (default - infinite). Returns Future result value.</p>
@@ -180,7 +181,7 @@ for completion (default - infinite). Returns Future result value.</p>
 <p>This is one of few ways to drop Future monad, don't use unless it is
 absolutely necessary, prefer future composition.</p>
 </blockquote>
-<p><tt class="docutils literal">exception(timeout=None)</tt></p>
+<p><tt class="docutils literal">exception(timeout=None) <span class="pre">-&gt;</span> Exception</tt></p>
 <blockquote>
 <p>Blocking wait for future exception. timeout: time in seconds to wait
 for completion (default - infinite). Returns Exception future failed
@@ -189,22 +190,22 @@ Raises <tt class="docutils literal">TimeoutError</tt> if future does not complet
 <p>This is one of few ways to drop Future monad, don't use unless it is
 absolutely necessary, prefer future composition.</p>
 </blockquote>
-<p><tt class="docutils literal">&#64;staticmethod successful(result=None, clb_executor=None)</tt></p>
+<p><tt class="docutils literal">&#64;staticmethod successful(result=None, clb_executor=None) <span class="pre">-&gt;</span> Future</tt></p>
 <blockquote>
 Returns successfully completed future. result - value to
 complete future with, clb_executor - default Executor to
 use for running callbacks (default - Synchronous).</blockquote>
-<p><tt class="docutils literal">&#64;staticmethod failed(exception, clb_executor=None)</tt></p>
+<p><tt class="docutils literal">&#64;staticmethod failed(exception, clb_executor=None) <span class="pre">-&gt;</span> Future</tt></p>
 <blockquote>
 Returns failed future. exception - Exception to set to future,
 clb_executor - default Executor to use for running
 callbacks (default - Synchronous).</blockquote>
-<p><tt class="docutils literal">&#64;staticmethod completed(fun, *args, clb_executor=None)</tt></p>
+<p><tt class="docutils literal">&#64;staticmethod completed(fun, *args, clb_executor=None) <span class="pre">-&gt;</span> Future</tt></p>
 <blockquote>
 Returns successful or failed future set from provided function.</blockquote>
 </div>
 <div class="section" id="promise-interface">
-<h2><a class="toc-backref" href="#id6">Promise interface</a></h2>
+<h2><a class="toc-backref" href="#id8">Promise interface</a></h2>
 <p>Promise is an only intended way of creating <tt class="docutils literal">Futures</tt>. It is intended
 to be inaccessible to clients of systems which provide async operations
 and is the only right way to set result to the future given to client.</p>
@@ -214,20 +215,23 @@ Creates new <tt class="docutils literal">Promise</tt> with associated <tt class=
 clb_executor - specifies default <tt class="docutils literal">Executor</tt> for running
 <tt class="docutils literal">Future.on_success()</tt> and <tt class="docutils literal">Future.on_failure()</tt> callbacks
 (default - Synchronous).</blockquote>
-<p><tt class="docutils literal">&#64;property future</tt></p>
+<p><tt class="docutils literal">&#64;property future <span class="pre">-&gt;</span> Future</tt></p>
 <blockquote>
 Returns associated future instance.</blockquote>
-<p><tt class="docutils literal">&#64;property is_completed</tt></p>
+<p><a href="#id1"><span class="problematic" id="id2">``</span></a>&#64;property is_completed` -&gt; bool`</p>
+<div class="system-message" id="id1">
+<p class="system-message-title">System Message: WARNING/2 (<tt class="docutils">../../projects/current/github/rxpython/doc/pep-0000.txt</tt>, line 195); <em><a href="#id2">backlink</a></em></p>
+Inline literal start-string without end-string.</div>
 <blockquote>
 Returns True if associated future is completed or cancelled.</blockquote>
-<p><tt class="docutils literal">&#64;property is_cancelled</tt></p>
+<p><tt class="docutils literal">&#64;property is_cancelled <span class="pre">-&gt;</span> bool</tt></p>
 <blockquote>
 Returns True if the future cancellation was requested by client.</blockquote>
 <p><tt class="docutils literal">success(result)</tt></p>
 <blockquote>
 Completes associated future with provided value.
 Raises <tt class="docutils literal">IllegalStateError</tt> if future value was already set.</blockquote>
-<p><tt class="docutils literal">try_success(result)</tt></p>
+<p><tt class="docutils literal">try_success(result) <span class="pre">-&gt;</span> bool</tt></p>
 <blockquote>
 Completes associated future with provided value.
 Returns True if future value was set and False if it was
@@ -236,7 +240,7 @@ already set before.</blockquote>
 <blockquote>
 Completes associated future with provided exception.
 Raises <tt class="docutils literal">IllegalStateError</tt> if future value was already set.</blockquote>
-<p><tt class="docutils literal">try_failure(exception)</tt></p>
+<p><tt class="docutils literal">try_failure(exception) <span class="pre">-&gt;</span> bool</tt></p>
 <blockquote>
 Completes associated future with provided exception.
 Returns True if future value was set and False if it was
@@ -246,7 +250,7 @@ already set before.</blockquote>
 Executes provided function and sets future value from result
 or exception if function raises.
 Raises <tt class="docutils literal">IllegalStateError</tt> if future value was already set.</blockquote>
-<p><tt class="docutils literal">try_complete(fun, *vargs, **kwargs)</tt></p>
+<p><tt class="docutils literal">try_complete(fun, *vargs, **kwargs) <span class="pre">-&gt;</span> bool</tt></p>
 <blockquote>
 Executes provided function and sets future value from result
 or exception if function raises.
@@ -254,25 +258,25 @@ Returns True if future value was set and False if it was
 already set before.</blockquote>
 </div>
 <div class="section" id="future-composition">
-<h2><a class="toc-backref" href="#id7">Future composition</a></h2>
+<h2><a class="toc-backref" href="#id9">Future composition</a></h2>
 <p>Composition methods allow you to make computations on <tt class="docutils literal">Future</tt>
 result without resorting to blocking waits. They also provide
 means for combining multiple different futures together.</p>
-<p><tt class="docutils literal">recover(fun_ex, executor=None)</tt></p>
+<p><tt class="docutils literal">recover(fun_ex, executor=None) <span class="pre">-&gt;</span> Future</tt></p>
 <blockquote>
 Returns future that will contain result of original if it
 completes successfully, or set from result of provided function
 in case of failure. fun_ex - function that accepts Exception
 parameter, executor - Executor to use when performing call to
 function (default - Synchronous).</blockquote>
-<p><tt class="docutils literal">map(fun_res, executor=None)</tt></p>
+<p><tt class="docutils literal">map(fun_res, executor=None) <span class="pre">-&gt;</span> Future</tt></p>
 <blockquote>
 Returns future which will be set from result of applying
 provided function to original future value. fun_res - function
 that accepts original result and returns new value,
 executor - Executor to use when performing call to
 function (default - Synchronous).</blockquote>
-<p><tt class="docutils literal">then(future_fun, executor=None)</tt></p>
+<p><tt class="docutils literal">then(future_fun, executor=None) <span class="pre">-&gt;</span> Future</tt></p>
 <blockquote>
 Returns future which represents two futures chained one
 after another. Failures are propagated from first future,
@@ -281,7 +285,7 @@ future_fun - function that returns future to be chained
 after successful completion of first one
 (or Future instance directly), executor - Executor to use
 when performing call to function (default - Synchronous).</blockquote>
-<p><tt class="docutils literal">fallback(future_fun, executor=None)</tt></p>
+<p><tt class="docutils literal">fallback(future_fun, executor=None) <span class="pre">-&gt;</span> Future</tt></p>
 <blockquote>
 Returns future that will contain result of original if
 it completes successfully, or will be set from future
@@ -289,21 +293,21 @@ returned from provided function in case of failure.
 future_fun - function that returns future to be used for
 fallback (or Future instance directly), executor - Executor
 to use when performing call to function (default - Synchronous).</blockquote>
-<p><tt class="docutils literal">&#64;staticmethod all(futures, clb_executor=None)</tt></p>
+<p><tt class="docutils literal">&#64;staticmethod all(futures, clb_executor=None) <span class="pre">-&gt;</span> Future</tt></p>
 <blockquote>
 Transforms list of futures into one future that will contain
 list of results. In case of any failure future will be failed
 with first exception to occur. futures - list of futures
 to combine, clb_executor - default executor to use when running
 new future's callbacks (default - Synchronous).</blockquote>
-<p><tt class="docutils literal">&#64;staticmethod first(futures, clb_executor=None)</tt></p>
+<p><tt class="docutils literal">&#64;staticmethod first(futures, clb_executor=None) <span class="pre">-&gt;</span> Future</tt></p>
 <blockquote>
 Returns future which will be set from result of first future
 to complete, both successfully or with failure.
 futures - list of futures to combine, clb_executor - default
 executor to use when running new future's callbacks
 (default - Synchronous).</blockquote>
-<p><tt class="docutils literal">&#64;staticmethod first_successful(futures, clb_executor=None)</tt></p>
+<p><tt class="docutils literal">&#64;staticmethod first_successful(futures, clb_executor=None) <span class="pre">-&gt;</span> Future</tt></p>
 <blockquote>
 Returns future which will be set from result of first
 future to complete successfully, last detected error
@@ -311,7 +315,7 @@ will be set in case when all of the provided future fail.
 futures - list of futures to combine, clb_executor - default
 executor to use when running new future's callbacks
 (default - Synchronous).</blockquote>
-<p><tt class="docutils literal">&#64;staticmethod reduce(futures, fun, *vargs, executor=None, clb_executor=None)</tt></p>
+<p><tt class="docutils literal">&#64;staticmethod reduce(futures, fun, *vargs, executor=None, clb_executor=None) <span class="pre">-&gt;</span> Future</tt></p>
 <blockquote>
 Returns future which will be set with reduced result of
 all provided futures. In case of any failure future will
@@ -323,7 +327,7 @@ to use when running new future's callbacks
 (default - Synchronous).</blockquote>
 </div>
 <div class="section" id="executors">
-<h2><a class="toc-backref" href="#id8">Executors</a></h2>
+<h2><a class="toc-backref" href="#id10">Executors</a></h2>
 <p>Besides the services which expose asynchronous APIs returning
 futures executors appear in many <tt class="docutils literal">Future</tt> methods to allow
 controlling the context in which different callbacks are executed.
@@ -341,7 +345,7 @@ future will run in ThreadPool thread unless it specifies
 different executor explicitly.</p>
 <p><tt class="docutils literal">Executor</tt> contract expected by proposed package includes
 single method:</p>
-<p><tt class="docutils literal">submit(fn, *args, **kwargs)</tt></p>
+<p><tt class="docutils literal">submit(fn, *args, **kwargs) <span class="pre">-&gt;</span> Future</tt></p>
 <blockquote>
 Schedules function for execution and return <cite>Future</cite>
 representing pending result.</blockquote>
@@ -352,7 +356,7 @@ startup, but generally default executor should be controlled
 on per-service basis.</p>
 </div>
 <div class="section" id="unhandled-errors-policy">
-<h2><a class="toc-backref" href="#id9">Unhandled errors policy</a></h2>
+<h2><a class="toc-backref" href="#id11">Unhandled errors policy</a></h2>
 <p>Errors in async operations should not go unnoticed, that's why
 proposed package expects that all <tt class="docutils literal">Future</tt> failures will be
 handled explicitly by getting <tt class="docutils literal">result</tt> or <tt class="docutils literal">exception</tt>,
@@ -372,7 +376,7 @@ explicitly ignore error of one future by calling
 unnoticed.</p>
 </div>
 <div class="section" id="performance-overhead">
-<h2><a class="toc-backref" href="#id10">Performance overhead</a></h2>
+<h2><a class="toc-backref" href="#id12">Performance overhead</a></h2>
 <p>Overhead of <tt class="docutils literal">Future</tt> comparing to simple callback is:</p>
 <ul class="simple">
 <li>one condition variable for protecting state from concurrent
@@ -390,9 +394,9 @@ failed futures.</p>
 </div>
 </div>
 <div class="section" id="usage-examples">
-<h1><a class="toc-backref" href="#id11">Usage examples</a></h1>
+<h1><a class="toc-backref" href="#id13">Usage examples</a></h1>
 <div class="section" id="completing-futures-with-promises">
-<h2><a class="toc-backref" href="#id12">Completing futures with promises</a></h2>
+<h2><a class="toc-backref" href="#id14">Completing futures with promises</a></h2>
 <pre class="literal-block">
 from concurrent.futures import Promise
 from threading import Thread
@@ -414,7 +418,7 @@ f.on_failure(lambda ex: print(&quot;request failed&quot;))
 </pre>
 </div>
 <div class="section" id="computations">
-<h2><a class="toc-backref" href="#id13">Computations</a></h2>
+<h2><a class="toc-backref" href="#id15">Computations</a></h2>
 <pre class="literal-block">
 from concurrent.futures import Future
 from concurrent.executors import ThreadPoolExecutor
@@ -430,7 +434,7 @@ with ThreadPoolExecutor(10) as tp:
 </pre>
 </div>
 <div class="section" id="chaining-requests">
-<h2><a class="toc-backref" href="#id14">Chaining requests</a></h2>
+<h2><a class="toc-backref" href="#id16">Chaining requests</a></h2>
 <pre class="literal-block">
 from concurrent.futures import Future
 
@@ -448,7 +452,7 @@ frequest.on_failure(lambda ex: print(&quot;auth or request failed&quot;))
 </pre>
 </div>
 <div class="section" id="fallbacks">
-<h2><a class="toc-backref" href="#id15">Fallbacks</a></h2>
+<h2><a class="toc-backref" href="#id17">Fallbacks</a></h2>
 <pre class="literal-block">
 from concurrent.futures import Future
 
@@ -462,7 +466,7 @@ fconnection = connect_ssl().fallback(connect_plain)
 </pre>
 </div>
 <div class="section" id="hedged-requests">
-<h2><a class="toc-backref" href="#id16">Hedged requests</a></h2>
+<h2><a class="toc-backref" href="#id18">Hedged requests</a></h2>
 <pre class="literal-block">
 from concurrent.futures import Future
 from concurrent.executors import ThreadPoolExecutor
@@ -485,9 +489,9 @@ with ThreadPoolExecutor(10) as tp:
 </div>
 </div>
 <div class="section" id="backward-compatibility">
-<h1><a class="toc-backref" href="#id17">Backward compatibility</a></h1>
+<h1><a class="toc-backref" href="#id19">Backward compatibility</a></h1>
 <div class="section" id="interface-differences">
-<h2><a class="toc-backref" href="#id18">Interface differences</a></h2>
+<h2><a class="toc-backref" href="#id20">Interface differences</a></h2>
 <p>Executor interface reduced to:</p>
 <pre class="literal-block">
 class Executor:
@@ -539,8 +543,17 @@ such as <tt class="docutils literal">threading</tt> and <tt class="docutils lite
 for this functionality.</p>
 </div>
 </div>
+<div class="section" id="further-development">
+<h1><a class="toc-backref" href="#id21">Further development</a></h1>
+<ul class="simple">
+<li><tt class="docutils literal">Observable</tt> abstraction for asynchronous streams of data.</li>
+<li>Future-based interface support in other modules (<tt class="docutils literal">threading</tt>,
+<tt class="docutils literal">multiprocessing</tt>, <tt class="docutils literal">asyncio</tt>).</li>
+<li>Debugging facilities for tracing and graphing future chains.</li>
+</ul>
+</div>
 <div class="section" id="references">
-<h1><a class="toc-backref" href="#id19">References</a></h1>
+<h1><a class="toc-backref" href="#id22">References</a></h1>
 <ul class="simple">
 <li><a class="reference external" href="/dev/peps/pep-3148">PEP 3148</a> describes current implementation of <tt class="docutils literal">concurrent.futures</tt></li>
 <li><a class="reference external" href="/dev/peps/pep-3156">PEP 3156</a> describes <tt class="docutils literal">asyncio</tt> package implementing own futures</li>
