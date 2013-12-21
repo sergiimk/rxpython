@@ -10,9 +10,12 @@ Motivation
 * escaping monad
 * multiple versions (asyncio)
 * benefit
+* callback execution context
 
 Proposed solution
 -----------------
+* composability
+* easy to use for other impls
 * focused
 * no thread pools etc
 
@@ -21,7 +24,7 @@ Specification
 
 Proposed package defines following abstractions:
 
-- `Executor` - a contract for a service that executes async operations.
+- `Executor` - a contract for scheduling async operations.
 
 - `Future` - represents result of async operation which is expected
  to be completed by some `Executor`
@@ -241,18 +244,77 @@ to use when running new future's callbacks
 Executors
 ---------
 
-* out of scope
+Besides the services which expose asynchronous APIs returning
+futures executors appear in many `Future` methods to allow
+controlling the context in which different callbacks are executed.
+Each `Future` can be assigned a default callback executor when
+created. This allows executors to control suggested context of
+callbacks.
+
+For example if a service implements HTTP request multiplexing
+in dedicated thread it is dangerous to run user's callbacks
+synchronously because they may block or run for considerably
+long time, thus blocking the whole HTTP request
+processing thread. So this service can override default
+callback executor and set it to `ThreadPoolExecutor` when
+returning future to client. This way every callback of this
+future will run in ThreadPool thread unless it specifies
+different executor explicitly.
+
+`Executor` contract expected by proposed package includes
+single method:
 
 ``submit(fn, *args, **kwargs)``
 
 Schedules function for execution and return `Future`
 representing pending result.
 
+By default all futures use `SynchronousExecutor` for all
+callbacks. This can be changed globally by setting
+`config.Default.CALLBACK_EXECUTOR` field on application
+startup, but generally default executor should be controlled
+on per-service basis.
+
+Unhandled errors policy
+-----------------------
+
+Errors in async operations should not go unnoticed, that's why
+proposed package expects that all `Future` failures will be
+handled explicitly by getting `result` or `exception`,
+setting `on_failure` callbacks, or using composition methods.
+
+Unhandled error may be result of uncaught exception in `on_sucess`
+or `on_failure` callback which is trapped by `Executor`, or
+be raised from `Future` who's failure was not handled explicitly.
+In later case unhandled error is raised when `Future` object is
+about to be deleted by GC.
+
+To avoid exceptions being lost package defines default callback
+for unhandled failures which logs errors to `sys.stderr`.
+You can override this behavior by setting
+`config.Default.UNHANDLED_FAILURE_CALLBACK` field on application
+startup, but avoid ignoring errors. It is always better to
+explicitly ignore error of one future by calling
+`future.on_failure(None)` than having bunch of exceptions go
+unnoticed.
+
 Performance and overhead
 ------------------------
-* memory
-* lightweight completed futures
-* synchronous executor
+
+Overhead of `Future` comparing to simple callback is:
+- one condition variable for protecting state from concurrent
+access and waiting for completion
+- fields for holding future state, result value, and failure
+handling status
+- two lists for holding pending `on_sucess` and `on_failure`
+callbacks
+- field for default callback executor reference
+
+Since by default callbacks are executed using synchronous
+executor, in many cases all overhead is avoided using lightweight
+read-only future objects for representing successful and
+failed futures.
+
 
 Backward compatibility
 ======================
