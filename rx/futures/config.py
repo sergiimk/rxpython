@@ -15,7 +15,7 @@ def log_to_stderr(ex):
 class Default(object):
     # Called when failure of the future was not handled by any callback
     # This includes exceptions in on_success and on_failure callbacks
-    UNHANDLED_FAILURE_CALLBACK = log_to_stderr
+    UNHANDLED_FAILURE_CALLBACK = staticmethod(log_to_stderr)
 
     # Default executor for future callbacks
     CALLBACK_EXECUTOR = None

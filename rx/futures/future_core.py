@@ -1,6 +1,6 @@
 from .config import Default
 from threading import Condition
-from concurrent.futures import CancelledError
+from concurrent.futures import TimeoutError, CancelledError
 
 
 class IllegalStateError(Exception):

@@ -71,7 +71,7 @@ class FutureCallbacksTest(FutureTestBase):
         def on_unhandled(ex):
             self.clb_called = ex
 
-        Default.UNHANDLED_FAILURE_CALLBACK = on_unhandled
+        Default.UNHANDLED_FAILURE_CALLBACK = staticmethod(on_unhandled)
 
         f = Future.successful(123)
         f.on_success(lambda _: self._raise(TypeError()))

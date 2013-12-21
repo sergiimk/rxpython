@@ -84,7 +84,8 @@ class FutureCoreCallbacksFailure(FutureCoreFailure):
         pass
 
     def on_failure(self, fun_ex, executor=None):
-        assert callable(fun_ex), "Future.on_failure expects callable"
-        exc = executor or self._executor
-        f = exc.submit(fun_ex, self._value)
-        f.on_failure(Default.UNHANDLED_FAILURE_CALLBACK)
+        assert callable(fun_ex) or fun_ex is None, "Future.on_failure expects callable or None"
+        if fun_ex is not None:
+            exc = executor or self._executor
+            f = exc.submit(fun_ex, self._value)
+            f.on_failure(Default.UNHANDLED_FAILURE_CALLBACK)
