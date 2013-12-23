@@ -1,4 +1,4 @@
-from .future_core import FutureCore
+from .future_callbacks import FutureBase
 from threading import Lock
 import functools
 
@@ -119,7 +119,7 @@ class FutureExtensions(object):
                 f.cancel()
             elif fut.exception() is None:
                 try:
-                    f2 = future_fun if isinstance(future_fun, FutureCore) else future_fun()
+                    f2 = future_fun if isinstance(future_fun, FutureBase) else future_fun()
                     f2.add_done_callback(f._set_from)
                 except Exception as ex:
                     f.set_exception(ex)
@@ -157,7 +157,7 @@ class FutureExtensions(object):
                 f.cancel()
             elif fut.exception() is not None:
                 try:
-                    f2 = future_fun if isinstance(future_fun, FutureCore) else future_fun()
+                    f2 = future_fun if isinstance(future_fun, FutureBase) else future_fun()
                     f2.add_done_callback(f._set_from)
                 except Exception as ex:
                     f._failure(ex)

@@ -1,10 +1,10 @@
 from concurrent.futures.sync.future_core import _PENDING, _CANCELLED
-from concurrent.futures.sync.future_callbacks import FutureCoreCallbacks
+from concurrent.futures.sync.future_callbacks import FutureBase
 from concurrent.futures.sync.future_extensions import FutureExtensions
 from threading import Condition
 
 
-class Future(FutureCoreCallbacks, FutureExtensions):
+class Future(FutureBase, FutureExtensions):
     def __init__(self, clb_executor=None):
         """Initialize the future.
 
@@ -12,22 +12,22 @@ class Future(FutureCoreCallbacks, FutureExtensions):
         executor object used by the future for running callbacks.
         If it's not provided, the future uses the default executor.
         """
-        FutureCoreCallbacks.__init__(self, clb_executor)
+        FutureBase.__init__(self, clb_executor)
         self._mutex = Condition()
 
     def _try_set_result(self, state, result, exception):
         with self._mutex:
-            return FutureCoreCallbacks._try_set_result(self, state, result, exception)
+            return FutureBase._try_set_result(self, state, result, exception)
 
     def done(self):
         """Returns True if future is completed or cancelled."""
         with self._mutex:
-            return FutureCoreCallbacks.done(self)
+            return FutureBase.done(self)
 
     def cancelled(self):
         """Returns True if the future cancellation was requested."""
         with self._mutex:
-            return FutureCoreCallbacks.cancelled(self)
+            return FutureBase.cancelled(self)
 
     def cancel(self):
         """Requests cancellation of future.
@@ -38,7 +38,7 @@ class Future(FutureCoreCallbacks, FutureExtensions):
         with self._mutex:
             if self._state != _PENDING:
                 return False
-            return FutureCoreCallbacks._try_set_result(self, _CANCELLED, None, None)
+            return FutureBase._try_set_result(self, _CANCELLED, None, None)
 
     def result(self, timeout=None):
         """Return the result this future represents.
@@ -55,7 +55,7 @@ class Future(FutureCoreCallbacks, FutureExtensions):
                 self._mutex.wait(timeout)
             if self._state == _PENDING:
                 raise TimeoutError("Future waiting timeout reached")
-            return FutureCoreCallbacks.result(self)
+            return FutureBase.result(self)
 
     def exception(self, timeout=None):
         """Return the exception that was set on this future.
@@ -72,7 +72,7 @@ class Future(FutureCoreCallbacks, FutureExtensions):
                 self._mutex.wait(timeout)
             if self._state == _PENDING:
                 raise TimeoutError("Future waiting timeout reached")
-            return FutureCoreCallbacks.exception(self)
+            return FutureBase.exception(self)
 
     def add_done_callback(self, fun_res, executor=None):
         """Add a callback to be run when the future becomes done.
@@ -82,7 +82,7 @@ class Future(FutureCoreCallbacks, FutureExtensions):
         scheduled with call_soon.
         """
         with self._mutex:
-            FutureCoreCallbacks.add_done_callback(self, fun_res, executor)
+            FutureBase.add_done_callback(self, fun_res, executor)
 
     def remove_done_callback(self, fn):
         """Remove all instances of a callback from the "call when done" list.
@@ -90,9 +90,9 @@ class Future(FutureCoreCallbacks, FutureExtensions):
         Returns the number of callbacks removed.
         """
         with self._mutex:
-            return FutureCoreCallbacks.remove_done_callback(self, fn)
+            return FutureBase.remove_done_callback(self, fn)
 
     #override
     def _on_result_set(self):
-        FutureCoreCallbacks._on_result_set(self)
+        FutureBase._on_result_set(self)
         self._mutex.notify_all()
