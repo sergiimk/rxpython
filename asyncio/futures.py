@@ -3,21 +3,21 @@
 __all__ = ['CancelledError', 'TimeoutError',
            'InvalidStateError',
            'Future', 'wrap_future',
-           ]
+]
 
-import concurrent.futures._base
+import concurrent.futures.sync
+import concurrent.futures.exceptions
 import logging
 
 from . import events
 
 # TODO: Do we really want to depend on concurrent.futures internals?
-Error = concurrent.futures._base.Error
-CancelledError = concurrent.futures.CancelledError
-TimeoutError = concurrent.futures.TimeoutError
-InvalidStateError = concurrent.futures.InvalidStateError
+Error = concurrent.futures.exceptions.Error
+CancelledError = concurrent.futures.exceptions.CancelledError
+TimeoutError = concurrent.futures.exceptions.TimeoutError
+InvalidStateError = concurrent.futures.exceptions.InvalidStateError
 
 STACK_DEBUG = logging.DEBUG - 1  # heavy-duty debugging
-
 
 '''
 class Future:
@@ -260,19 +260,25 @@ def wrap_future(fut, *, loop=None):
     return new_future
 '''
 
-from concurrent.futures.sync import Future as FutureSync
+
+def loop_as_executor(loop):
+    return loop.call_soon
 
 
-class Future(FutureSync):
+def loop_as_executor_threadsafe(loop):
+    return loop.call_soon_threadsafe
+
+
+class Future(concurrent.futures.sync.Future):
     _blocking = False  # proper use of future (yield vs yield from)
 
     def __init__(self, *, loop=None):
-        super().__init__(loop or events.get_event_loop())
-        self._loop = self._executor
+        self._loop = loop or events.get_event_loop()
+        super().__init__(loop_as_executor(self._loop))
 
     def _run_callback(self, clb, executor):
-        #exc = executor or self._executor
-        self._executor.call_soon(clb, self)
+        executor = executor or self._executor
+        executor(clb, self)
 
     def __iter__(self):
         if not self.done():

@@ -3,9 +3,15 @@ from .test_base import FutureTestBase
 
 
 class FutureCoreTest(FutureTestBase):
+    def test_repr(self):
+        f = Future()
+        f.add_done_callback(self._raise, TypeError())
+        f.add_done_callback(self._raise, TypeError())
+        f.add_done_callback(self._raise, TypeError())
+        repr(f)
+
     def test_get_result_when_succeeded(self):
         f = Future()
-        print(f)
         self.assertFalse(f.done())
         self.assertFalse(f.cancelled())
 

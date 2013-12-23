@@ -1,4 +1,4 @@
-from concurrent.executors.thread import ThreadPoolExecutor
+from concurrent.executors import ThreadPoolExecutor
 import unittest
 import time
 
