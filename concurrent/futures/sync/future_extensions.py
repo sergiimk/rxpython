@@ -82,12 +82,19 @@ class FutureExtensions(object):
         f = cls(self._executor)
 
         def on_done_map(fut):
-            if fut.exception() is None:
+            if fut.cancelled():
+                f.cancel()
+            elif fut.exception() is None:
                 f._complete(fun_res, fut.result())
             else:
                 f.set_exception(fut.exception())
 
+        def backprop_cancel(fut):
+            if fut.cancelled():
+                self.cancel()
+
         self.add_done_callback(on_done_map, executor=executor)
+        f.add_done_callback(backprop_cancel)
         return f
 
     def then(self, future_fun, executor=None):
@@ -108,7 +115,9 @@ class FutureExtensions(object):
         f = cls(self._executor)
 
         def on_done_start_next(fut):
-            if fut.exception() is None:
+            if fut.cancelled():
+                f.cancel()
+            elif fut.exception() is None:
                 try:
                     f2 = future_fun if isinstance(future_fun, FutureCore) else future_fun()
                     f2.add_done_callback(f._set_from)
@@ -117,7 +126,12 @@ class FutureExtensions(object):
             else:
                 f.set_exception(fut.exception())
 
+        def backprop_cancel(fut):
+            if fut.cancelled():
+                self.cancel()
+
         self.add_done_callback(on_done_start_next, executor=executor)
+        f.add_done_callback(backprop_cancel)
         return f
 
     def fallback(self, future_fun, executor=None):
@@ -139,7 +153,9 @@ class FutureExtensions(object):
         f = cls(self._executor)
 
         def on_done_start_fallback(fut):
-            if fut.exception() is not None:
+            if fut.cancelled():
+                f.cancel()
+            elif fut.exception() is not None:
                 try:
                     f2 = future_fun if isinstance(future_fun, FutureCore) else future_fun()
                     f2.add_done_callback(f._set_from)
@@ -148,7 +164,12 @@ class FutureExtensions(object):
             else:
                 f.set_resutl(fut.result())
 
+        def backprop_cancel(fut):
+            if fut.cancelled():
+                self.cancel()
+
         self.add_done_callback(on_done_start_fallback, executor=executor)
+        f.add_done_callback(backprop_cancel)
         return f
 
     class comb_ctx(object):
@@ -176,6 +197,8 @@ class FutureExtensions(object):
         ctx.left = len(futures)
 
         def done(i, fut):
+            if fut.cancelled():
+                f.cancel()
             if fut.exception() is not None:
                 f.set_exception(fut.exception())
             else:
@@ -185,9 +208,15 @@ class FutureExtensions(object):
                     if not ctx.left:
                         f.set_result(ctx.results)
 
+        def backprop_cancel(fut):
+            if fut.cancelled():
+                for fi in futures:
+                    fi.cancel()
+
         for i, fi in enumerate(futures):
             fi.add_done_callback(functools.partial(done, i))
 
+        f.add_done_callback(backprop_cancel)
         return f
 
     @classmethod
@@ -207,6 +236,12 @@ class FutureExtensions(object):
         for fi in futures:
             fi.add_done_callback(f._try_set_from)
 
+        def backprop_cancel(fut):
+            if fut.cancelled():
+                for fi in futures:
+                    fi.cancel()
+
+        f.add_done_callback(backprop_cancel)
         return f
 
     @classmethod
@@ -228,17 +263,23 @@ class FutureExtensions(object):
         ctx.left = len(futures)
 
         def on_done(fut):
-            if fut.exception() is None:
+            if not fut.cancelled() and fut.exception() is None:
                 f.try_set_result(fut.result())
             else:
                 with ctx.lock:
                     ctx.left -= 1
                     if not ctx.left:
-                        f.set_exception(fut.exception())
+                        f._set_from(fut)
 
         for fi in futures:
             fi.add_done_callback(on_done)
 
+        def backprop_cancel(fut):
+            if fut.cancelled():
+                for fi in futures:
+                    fi.cancel()
+
+        f.add_done_callback(backprop_cancel)
         return f
 
     @classmethod

@@ -1,6 +1,5 @@
 from concurrent.futures.sync import *
 from .test_base import FutureTestBase
-import functools
 
 
 class FutureCoreTest(FutureTestBase):

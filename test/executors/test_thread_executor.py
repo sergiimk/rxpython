@@ -40,13 +40,11 @@ class ThreadPoolExecutorTest(unittest.TestCase):
                     time.sleep(0.01)
                     nonlocal thread_body
                     thread_body = threading.current_thread()
-                    print(thread_body)
 
                 def clb(_):
                     time.sleep(0.01)
                     nonlocal thread_clb
                     thread_clb = threading.current_thread()
-                    print(thread_clb)
 
                 f = tpx1.submit(run)
                 f2 = f.map(clb, executor=tpx2)
