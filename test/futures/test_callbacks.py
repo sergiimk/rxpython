@@ -1,6 +1,6 @@
 from .test_base import FutureTestBase
 from concurrent.futures.sync import *
-from concurrent.futures.sync.config import Default
+from concurrent.futures.config import Default
 
 
 class FutureCallbacksTest(FutureTestBase):
@@ -47,7 +47,7 @@ class FutureCallbacksTest(FutureTestBase):
         self.clb_called = False
 
         def on_done(fut):
-            self.assertIsInstance(fut.exception(), CancelledError)
+            self.assertRaises(CancelledError, fut.exception)
             self.clb_called = True
 
         f.add_done_callback(on_done)
@@ -56,18 +56,29 @@ class FutureCallbacksTest(FutureTestBase):
         f.cancel()
         self.assertTrue(self.clb_called)
 
-    def test_unhandled_error_handler(self):
+    def test_unhandled_error_future(self):
         self.clb_called = False
 
-        def on_unhandled(ex):
-            self.clb_called = ex
+        def on_unhandled(cls, tb):
+            self.clb_called = cls
+
+        Default.UNHANDLED_FAILURE_CALLBACK = staticmethod(on_unhandled)
+
+        f = Future.completed(self._raise, TypeError())
+        f._ex_handler.__del__()
+        self.assertEqual(TypeError, self.clb_called)
+
+    def test_unhandled_error_callback(self):
+        self.clb_called = False
+
+        def on_unhandled(cls, tb):
+            self.clb_called = cls
 
         Default.UNHANDLED_FAILURE_CALLBACK = staticmethod(on_unhandled)
 
         f = Future.successful(123)
         f.add_done_callback(lambda _: self._raise(TypeError()))
-
-        self.assertIsInstance(self.clb_called, TypeError)
+        self.assertEqual(TypeError, self.clb_called)
 
 
 if __name__ == '__main__':

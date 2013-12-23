@@ -13,6 +13,6 @@ from concurrent.futures._base import (FIRST_COMPLETED,
                                       wait,
                                       as_completed)
 
-from .exceptions import CancelledError, TimeoutError
+from .exceptions import CancelledError, TimeoutError, InvalidStateError
 #from concurrent.executors.process import ProcessPoolExecutor
 #from concurrent.executors.thread import ThreadPoolExecutor

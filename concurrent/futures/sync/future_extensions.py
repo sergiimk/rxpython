@@ -32,11 +32,11 @@ class FutureExtensions(object):
         return f
 
     @classmethod
-    def completed(cls, fun, clb_executor=None):
+    def completed(cls, fun, *args, clb_executor=None, **kwargs):
         """Returns successful or failed future set from provided function."""
         f = cls(clb_executor)
         try:
-            f.set_result(fun())
+            f.set_result(fun(*args, **kwargs))
         except Exception as ex:
             f.set_exception(ex)
         return f

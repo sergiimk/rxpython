@@ -1,95 +1,85 @@
-from .config import Default
-from asyncio import InvalidStateError
-from concurrent.futures._base import TimeoutError, CancelledError
+from concurrent.futures.exceptions import (InvalidStateError,
+                                           CancelledError)
 
 
-class FutureState(object):
-    in_progress = 0
-    success = 1
-    failure = -1
-    cancelled = -2
+# States for Future.
+_PENDING = 'PENDING'
+_CANCELLED = 'CANCELLED'
+_FINISHED = 'FINISHED'
 
 
 class FutureCore(object):
     """Encapsulates Future state."""
+    _state = _PENDING
+    _result = None
+    _exception = None
+    _ex_handler = None
 
     def __init__(self):
-        self._state = FutureState.in_progress
-        self._value = None
-        self._failure_handled = False
+        self._callbacks = []
 
-    def __del__(self):
-        if self._state == FutureState.failure and not self._failure_handled:
-            Default.default_callback(self)
-
-    def set_result(self, result):
-        if not self.try_set_result(result):
-            raise InvalidStateError("result was already set")
-
-    def try_set_result(self, result):
-        return self._try_set_result(FutureState.success, result)
-
-    def set_exception(self, exception):
-        if not self.try_set_exception(exception):
-            raise InvalidStateError("result was already set")
-
-    def try_set_exception(self, exception):
-        assert isinstance(exception, Exception), "Promise.failure expects Exception instance"
-        return self._try_set_result(FutureState.failure, exception)
-
-
-    def _complete(self, fun, *args, **kwargs):
-        try:
-            self.set_result(fun(*args, **kwargs))
-        except Exception as ex:
-            self.set_exception(ex)
-
-    def _set_from(self, future):
-        if future.exception() is None:
-            self.set_result(future.result())
+    def __repr__(self):
+        res = self.__class__.__name__
+        if self._state == _FINISHED:
+            if self._exception is not None:
+                res += '<exception={!r}>'.format(self._exception)
+            else:
+                res += '<result={!r}>'.format(self._result)
+        elif self._callbacks:
+            size = len(self._callbacks)
+            if size > 2:
+                res += '<{}, [{}, <{} more>, {}]>'.format(
+                    self._state, self._callbacks[0],
+                    size-2, self._callbacks[-1])
+            else:
+                res += '<{}, {}>'.format(self._state, self._callbacks)
         else:
-            self.set_exception(future.exception())
+            res += '<{}>'.format(self._state)
+        return res
 
-    def _try_set_from(self, future):
-        if future.exception() is None:
-            return self.try_set_result(future.result())
-        else:
-            return self.try_set_exception(future.exception())
-
-    def _try_set_result(self, state, value):
-        if self._state == FutureState.cancelled:
+    def _try_set_result(self, state, result, exception):
+        if self._state == _CANCELLED:
             return True
-        if self._state:
+        if self._state != _PENDING:
             return False
         self._state = state
-        self._value = value
+        self._result = result
+        self._exception = exception
         self._on_result_set()
         return True
+
+    def _error_handled(self):
+        if self._ex_handler is not None:
+            self._ex_handler.clear()
+            self._ex_handler = None
 
     #virtual
     def _on_result_set(self):
         pass
 
-    def done(self):
-        """Returns True if future is completed or cancelled."""
-        return self._state != FutureState.in_progress
+    def cancel(self):
+        """Cancel the future and schedule callbacks.
+
+        If the future is already done or cancelled, return False.  Otherwise,
+        change the future's state to cancelled, schedule the callbacks and
+        return True.
+        """
+        if self._state != _PENDING:
+            return False
+        self._error_handled()
+        return self._try_set_result(_CANCELLED, None, None)
 
     def cancelled(self):
-        """Returns True if the future cancellation was requested."""
-        return self._state == FutureState.cancelled
+        """Return True if the future was cancelled."""
+        return self._state == _CANCELLED
 
-    def cancel(self):
-        """Requests cancellation of future.
+    def done(self):
+        """Return True if the future is done.
 
-        Returns:
-            True if future was not yet completed or cancelled.
+        Done means either that a result / exception are available, or that the
+        future was cancelled.
         """
-        if self._state != FutureState.in_progress:
-            return False
-        self._state = FutureState.cancelled
-        self._value = CancelledError("Future was cancelled")
-        self._on_result_set()
-        return True
+        return self._state != _PENDING
 
     def result(self):
         """Return the result this future represents.
@@ -98,14 +88,15 @@ class FutureCore(object):
         future's result isn't yet available, raises InvalidStateError.  If
         the future is done and has an exception set, this exception is raised.
         """
-        if not self._state:
-            raise InvalidStateError("Result is not ready")
-        if self._state == FutureState.cancelled:
-            raise self._value
-        if self._state == FutureState.failure:
-            self._failure_handled = True
-            raise self._value
-        return self._value
+        if self._state == _CANCELLED:
+            raise CancelledError
+        if self._state != _FINISHED:
+            raise InvalidStateError('Result is not ready.')
+
+        self._error_handled()
+        if self._exception is not None:
+            raise self._exception
+        return self._result
 
     def exception(self):
         """Return the exception that was set on this future.
@@ -115,9 +106,50 @@ class FutureCore(object):
         CancelledError.  If the future isn't done yet, raises
         InvalidStateError.
         """
-        if not self._state:
-            raise TimeoutError()
-        if self._state == FutureState.failure or self._state == FutureState.cancelled:
-            self._failure_handled = True
-            return self._value
-        return None
+        if self._state == _CANCELLED:
+            raise CancelledError
+        if self._state != _FINISHED:
+            raise InvalidStateError('Exception is not set.')
+
+        self._error_handled()
+        return self._exception
+
+    def set_result(self, result):
+        if not self.try_set_result(result):
+            raise InvalidStateError("result was already set")
+
+    def try_set_result(self, result):
+        return self._try_set_result(_FINISHED, result, None)
+
+    def set_exception(self, exception):
+        if not self.try_set_exception(exception):
+            raise InvalidStateError("result was already set")
+
+    def try_set_exception(self, exception):
+        assert isinstance(exception, Exception), "Promise.failure expects Exception instance"
+        return self._try_set_result(_FINISHED, None, exception)
+
+    def _complete(self, fun, *args, **kwargs):
+        try:
+            self.set_result(fun(*args, **kwargs))
+        except Exception as ex:
+            self.set_exception(ex)
+
+    def _set_from(self, other):
+        """Internal helper to copy state from another Future."""
+        if not self._try_set_from(other):
+            raise InvalidStateError("result was already set")
+
+    def _try_set_from(self, other):
+        """Internal helper to copy state from another Future."""
+        assert isinstance(other, FutureCore)
+        assert other.done()
+
+        if other.cancelled():
+            return self.cancel()
+        else:
+            exception = other.exception()
+            if exception is not None:
+                return self.try_set_exception(exception)
+            else:
+                return self.try_set_result(other.result())

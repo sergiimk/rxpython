@@ -51,37 +51,13 @@ class FutureCoreTest(FutureTestBase):
     def test_get_exception_when_cancelled(self):
         f = Future()
         f.cancel()
-        self.assertIsInstance(f.exception(), CancelledError)
+        self.assertRaises(CancelledError, f.exception)
 
     def test_set_result_when_already_set(self):
         f = Future()
         f.set_result(123)
         self.assertRaises(InvalidStateError, lambda: f.set_result(321))
         self.assertRaises(InvalidStateError, lambda: f.set_exception(TypeError()))
-
-    '''def test_complete_successfully(self):
-        f = Future()
-        p.complete(lambda: 123)
-        self.assertEqual(123, p.future.result())
-
-    def test_complete_with_exception(self):
-        def f():
-            raise ArithmeticError()
-
-        p = Promise()
-        p.complete(f)
-        self.assertRaises(ArithmeticError, p.future.result)'''
-
-    '''def test_wait_raises_timeout(self):
-        p = Promise()
-        wait = functools.partial(p.future.result, 0)
-        self.assertRaises(TimeoutError, wait)
-
-    def test_wait_succeeds(self):
-        f = self.success_after(0.01, 12345)
-        self.assertFalse(f.is_completed)
-        self.assertTrue(f.wait(10))
-        self.assertEqual(12345, f.result())'''
 
 
 if __name__ == '__main__':

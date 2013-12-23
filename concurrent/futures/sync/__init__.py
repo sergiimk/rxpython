@@ -1,2 +1,2 @@
-from .future_core import InvalidStateError, CancelledError
+from ..exceptions import InvalidStateError, CancelledError
 from .future import Future

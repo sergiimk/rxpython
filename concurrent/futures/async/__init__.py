@@ -1,2 +1,2 @@
-from concurrent.futures.sync.future_core import InvalidStateError, CancelledError
+from ..exceptions import InvalidStateError, CancelledError, TimeoutError
 from .future import Future
