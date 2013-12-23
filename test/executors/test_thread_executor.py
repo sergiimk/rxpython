@@ -7,12 +7,12 @@ import unittest
 
 
 class ThreadPoolExecutorTest(unittest.TestCase):
-    def testSubmitSuccess(self):
+    def test_submit_success(self):
         with ThreadPoolExecutor(1) as tpx:
             f = tpx.submit(lambda: math.factorial(10))
             self.assertEqual(3628800, f.result(timeout=10))
 
-    def testSubmitFailure(self):
+    def test_submit_failure(self):
         with ThreadPoolExecutor(1) as tpx:
             def error():
                 raise TypeError()
@@ -20,12 +20,41 @@ class ThreadPoolExecutorTest(unittest.TestCase):
             f = tpx.submit(error)
             self.assertRaises(TypeError, functools.partial(f.result, 10))
 
-    def testCancellation(self):
+    def test_cancellation(self):
         with ThreadPoolExecutor(1) as tpx:
             tpx.submit(time.sleep, 0.01)
             f = tpx.submit(math.factorial, 10)
             f.cancel()
             self.assertRaises(CancelledError, f.result)
+
+    def test_callback_executor(self):
+        import threading
+
+        with ThreadPoolExecutor(1) as tpx1:
+            with ThreadPoolExecutor(1) as tpx2:
+                thread_main = threading.current_thread()
+                thread_body = 1
+                thread_clb = 2
+
+                def run():
+                    time.sleep(0.01)
+                    nonlocal thread_body
+                    thread_body = threading.current_thread()
+                    print(thread_body)
+
+                def clb(_):
+                    time.sleep(0.01)
+                    nonlocal thread_clb
+                    thread_clb = threading.current_thread()
+                    print(thread_clb)
+
+                f = tpx1.submit(run)
+                f2 = f.map(clb, executor=tpx2)
+
+                f2.result(10)
+                self.assertNotEqual(thread_main, thread_body)
+                self.assertNotEqual(thread_main, thread_clb)
+                self.assertNotEqual(thread_body, thread_clb)
 
 
 if __name__ == '__main__':

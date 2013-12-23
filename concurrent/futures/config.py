@@ -1,5 +1,6 @@
 import traceback
 import logging
+
 logger = logging.getLogger(__package__)
 
 
@@ -28,9 +29,7 @@ class Default(object):
         return Default.CALLBACK_EXECUTOR
 
     @staticmethod
-    def default_callback(future):
-        exc = future.exception()
-        if exc is not None:
-            tb = traceback.format_exception(exc.__class__, exc,
-                                            exc.__traceback__)
-            Default.UNHANDLED_FAILURE_CALLBACK(exc.__class__, tb)
+    def on_unhandled_error(exc):
+        tb = traceback.format_exception(exc.__class__, exc,
+                                        exc.__traceback__)
+        Default.UNHANDLED_FAILURE_CALLBACK(exc.__class__, tb)

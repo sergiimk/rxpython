@@ -47,7 +47,7 @@ class FutureCoreCallbacks(FutureCore):
         if self._exception is not None:
             clb = Default.UNHANDLED_FAILURE_CALLBACK
             self._ex_handler = EnsureExceptionHandledGuard(self._exception, clb)
-            self._executor.submit(self._ex_handler.activate)
+            self._executor(self._ex_handler.activate)
 
         callbacks = self._callbacks[:]
         if not callbacks:
@@ -58,6 +58,5 @@ class FutureCoreCallbacks(FutureCore):
             self._run_callback(clb, executor)
 
     def _run_callback(self, clb, executor):
-        exc = executor or self._executor
-        f = exc.submit(clb, self)
-        #f.add_done_callback(Default.default_callback)
+        executor = executor or self._executor
+        executor(clb, self)

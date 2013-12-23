@@ -1,14 +1,13 @@
-from .future import Future
+from ..config import Default
 
 
 class SynchronousExecutor(object):
-    @staticmethod
-    def submit(fn, *args, **kwargs):
+    def __call__(self, fn, *args, **kwargs):
         try:
-            return Future.successful(fn(*args, **kwargs))
+            fn(*args, **kwargs)
         except Exception as ex:
-            return Future.failed(ex)
+            Default.on_unhandled_error(ex)
 
 
 # alias
-Synchronous = SynchronousExecutor
+Synchronous = SynchronousExecutor()
