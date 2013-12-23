@@ -1,4 +1,4 @@
-from concurrent.executors import *
+from concurrent.executors.thread import ThreadPoolExecutor
 from concurrent.futures.async import *
 import time
 import math

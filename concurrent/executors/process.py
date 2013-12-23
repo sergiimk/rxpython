@@ -45,9 +45,11 @@ Process #1..n:
 
 __author__ = 'Brian Quinlan (brian@sweetapp.com)'
 
+from concurrent.futures.async import Future
+from concurrent.futures.old.executor import Executor
+
 import atexit
 import os
-from concurrent.futures import _base
 import queue
 from queue import Full
 import multiprocessing
@@ -55,8 +57,6 @@ from multiprocessing import SimpleQueue
 from multiprocessing.connection import wait
 import threading
 import weakref
-
-from concurrent.futures.async import Future
 
 # Workers are created as daemon threads and processes. This is done to allow the
 # interpreter to exit when there are still idle processes in a
@@ -75,6 +75,7 @@ from concurrent.futures.async import Future
 _threads_queues = weakref.WeakKeyDictionary()
 _shutdown = False
 
+
 def _python_exit():
     global _shutdown
     _shutdown = True
@@ -90,6 +91,7 @@ def _python_exit():
 # (Futures in the call queue cannot be cancelled).
 EXTRA_QUEUED_CALLS = 1
 
+
 class _WorkItem(object):
     def __init__(self, future, fn, args, kwargs):
         self.future = future
@@ -97,11 +99,13 @@ class _WorkItem(object):
         self.args = args
         self.kwargs = kwargs
 
+
 class _ResultItem(object):
     def __init__(self, work_id, exception=None, result=None):
         self.work_id = work_id
         self.exception = exception
         self.result = result
+
 
 class _CallItem(object):
     def __init__(self, work_id, fn, args, kwargs):
@@ -109,6 +113,7 @@ class _CallItem(object):
         self.fn = fn
         self.args = args
         self.kwargs = kwargs
+
 
 def _process_worker(call_queue, result_queue):
     """Evaluates calls from call_queue and places the results in result_queue.
@@ -137,6 +142,7 @@ def _process_worker(call_queue, result_queue):
         else:
             result_queue.put(_ResultItem(call_item.work_id,
                                          result=r))
+
 
 def _add_call_item_to_queue(pending_work_items,
                             work_ids,
@@ -175,6 +181,7 @@ def _add_call_item_to_queue(pending_work_items,
                 del pending_work_items[work_id]
                 continue
 
+
 def _queue_management_worker(executor_reference,
                              processes,
                              pending_work_items,
@@ -209,7 +216,7 @@ def _queue_management_worker(executor_reference,
         nb_children_alive = sum(p.is_alive() for p in processes.values())
         for i in range(0, nb_children_alive):
             call_queue.put_nowait(None)
-        # Release the queue's resources as soon as possible.
+            # Release the queue's resources as soon as possible.
         call_queue.close()
         # If .join() is not called on the created processes then
         # some multiprocessing.Queue methods may deadlock on Mac OS X.
@@ -235,7 +242,7 @@ def _queue_management_worker(executor_reference,
                 executor._broken = True
                 executor._shutdown_thread = True
                 executor = None
-            # All futures in flight must be marked failed
+                # All futures in flight must be marked failed
             for work_id, work_item in pending_work_items.items():
                 work_item.future.set_exception(
                     BrokenProcessPool(
@@ -269,9 +276,9 @@ def _queue_management_worker(executor_reference,
                     work_item.future.set_exception(result_item.exception)
                 else:
                     work_item.future.set_result(result_item.result)
-                # Delete references to object. See issue16284
+                    # Delete references to object. See issue16284
                 del work_item
-        # Check whether we should start shutting down.
+            # Check whether we should start shutting down.
         executor = executor_reference()
         # No more work items can be added if:
         #   - The interpreter is shutting down OR
@@ -290,8 +297,11 @@ def _queue_management_worker(executor_reference,
                 pass
         executor = None
 
+
 _system_limits_checked = False
 _system_limited = None
+
+
 def _check_system_limits():
     global _system_limits_checked, _system_limited
     if _system_limits_checked:
@@ -322,7 +332,7 @@ class BrokenProcessPool(RuntimeError):
     """
 
 
-class ProcessPoolExecutor(_base.Executor):
+class ProcessPoolExecutor(Executor):
     def __init__(self, max_workers=None):
         """Initializes a new ProcessPoolExecutor instance.
 
@@ -365,17 +375,18 @@ class ProcessPoolExecutor(_base.Executor):
         # the queue management thread.
         def weakref_cb(_, q=self._result_queue):
             q.put(None)
+
         if self._queue_management_thread is None:
             # Start the processes so that their sentinels are known.
             self._adjust_process_count()
             self._queue_management_thread = threading.Thread(
-                    target=_queue_management_worker,
-                    args=(weakref.ref(self, weakref_cb),
-                          self._processes,
-                          self._pending_work_items,
-                          self._work_ids,
-                          self._call_queue,
-                          self._result_queue))
+                target=_queue_management_worker,
+                args=(weakref.ref(self, weakref_cb),
+                      self._processes,
+                      self._pending_work_items,
+                      self._work_ids,
+                      self._call_queue,
+                      self._result_queue))
             self._queue_management_thread.daemon = True
             self._queue_management_thread.start()
             _threads_queues[self._queue_management_thread] = self._result_queue
@@ -383,9 +394,9 @@ class ProcessPoolExecutor(_base.Executor):
     def _adjust_process_count(self):
         for _ in range(len(self._processes), self._max_workers):
             p = multiprocessing.Process(
-                    target=_process_worker,
-                    args=(self._call_queue,
-                          self._result_queue))
+                target=_process_worker,
+                args=(self._call_queue,
+                      self._result_queue))
             p.start()
             self._processes[p.pid] = p
 
@@ -393,7 +404,7 @@ class ProcessPoolExecutor(_base.Executor):
         with self._shutdown_lock:
             if self._broken:
                 raise BrokenProcessPool('A child process terminated '
-                    'abruptly, the process pool is not usable anymore')
+                                        'abruptly, the process pool is not usable anymore')
             if self._shutdown_thread:
                 raise RuntimeError('cannot schedule new futures after shutdown')
 
@@ -408,7 +419,8 @@ class ProcessPoolExecutor(_base.Executor):
 
             self._start_queue_management_thread()
             return f
-    submit.__doc__ = _base.Executor.submit.__doc__
+
+    submit.__doc__ = Executor.submit.__doc__
 
     def shutdown(self, wait=True):
         with self._shutdown_lock:
@@ -418,12 +430,14 @@ class ProcessPoolExecutor(_base.Executor):
             self._result_queue.put(None)
             if wait:
                 self._queue_management_thread.join()
-        # To reduce the risk of opening too many files, remove references to
+            # To reduce the risk of opening too many files, remove references to
         # objects that use file descriptors.
         self._queue_management_thread = None
         self._call_queue = None
         self._result_queue = None
         self._processes = None
-    shutdown.__doc__ = _base.Executor.shutdown.__doc__
+
+    shutdown.__doc__ = Executor.shutdown.__doc__
+
 
 atexit.register(_python_exit)

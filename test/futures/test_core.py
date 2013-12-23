@@ -5,6 +5,7 @@ from .test_base import FutureTestBase
 class FutureCoreTest(FutureTestBase):
     def test_get_result_when_succeeded(self):
         f = Future()
+        print(f)
         self.assertFalse(f.done())
         self.assertFalse(f.cancelled())
 

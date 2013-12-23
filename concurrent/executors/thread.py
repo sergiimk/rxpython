@@ -5,13 +5,15 @@
 
 __author__ = 'Brian Quinlan (brian@sweetapp.com)'
 
+from concurrent.futures.async import Future
+from concurrent.futures.old.executor import Executor
 import atexit
-from concurrent.futures import _base
 import queue
 import threading
 import weakref
+import logging
 
-from concurrent.futures.async import Future
+logger = logging.getLogger(__package__)
 
 # Workers are created as daemon threads. This is done to allow the interpreter
 # to exit when there are still idle threads in a ThreadPoolExecutor's thread
@@ -83,10 +85,10 @@ def _worker(executor_reference, work_queue):
                 return
             del executor
     except BaseException:
-        _base.LOGGER.critical('Exception in worker', exc_info=True)
+        logger.critical('Exception in worker', exc_info=True)
 
 
-class ThreadPoolExecutor(_base.Executor):
+class ThreadPoolExecutor(Executor):
     def __init__(self, max_workers):
         """Initializes a new ThreadPoolExecutor instance.
 
@@ -116,7 +118,7 @@ class ThreadPoolExecutor(_base.Executor):
             self._adjust_thread_count()
             return f
 
-    submit.__doc__ = _base.Executor.submit.__doc__
+    submit.__doc__ = Executor.submit.__doc__
 
     def _adjust_thread_count(self):
         # When the executor gets lost, the weakref callback will wake up
@@ -125,6 +127,7 @@ class ThreadPoolExecutor(_base.Executor):
             q.put(None)
 
             # TODO(bquinlan): Should avoid creating new threads if there are more
+
         # idle threads than items in the work queue.
         if len(self._threads) < self._max_workers:
             t = threading.Thread(target=_worker,
@@ -143,4 +146,4 @@ class ThreadPoolExecutor(_base.Executor):
             for t in self._threads:
                 t.join()
 
-    shutdown.__doc__ = _base.Executor.shutdown.__doc__
+    shutdown.__doc__ = Executor.shutdown.__doc__
