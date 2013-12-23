@@ -45,7 +45,7 @@ Process #1..n:
 
 __author__ = 'Brian Quinlan (brian@sweetapp.com)'
 
-from concurrent.futures.async import Future
+from concurrent.futures.threaded import Future
 from concurrent.futures.old.executor import Executor
 
 import atexit
@@ -278,7 +278,7 @@ def _queue_management_worker(executor_reference,
                     work_item.future.set_result(result_item.result)
                     # Delete references to object. See issue16284
                 del work_item
-            # Check whether we should start shutting down.
+                # Check whether we should start shutting down.
         executor = executor_reference()
         # No more work items can be added if:
         #   - The interpreter is shutting down OR
@@ -430,8 +430,8 @@ class ProcessPoolExecutor(Executor):
             self._result_queue.put(None)
             if wait:
                 self._queue_management_thread.join()
-            # To reduce the risk of opening too many files, remove references to
-        # objects that use file descriptors.
+                # To reduce the risk of opening too many files, remove references to
+            # objects that use file descriptors.
         self._queue_management_thread = None
         self._call_queue = None
         self._result_queue = None

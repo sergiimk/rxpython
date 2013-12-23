@@ -1,4 +1,4 @@
-from concurrent.futures.async import Future as FutureAsync
+from concurrent.futures.threaded import Future as FutureAsync
 
 
 class Future(FutureAsync):

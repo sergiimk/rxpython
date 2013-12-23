@@ -5,7 +5,7 @@
 
 __author__ = 'Brian Quinlan (brian@sweetapp.com)'
 
-from concurrent.futures.async import Future
+from concurrent.futures.threaded import Future
 from concurrent.futures.old.executor import Executor
 import atexit
 import queue

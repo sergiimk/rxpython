@@ -1,5 +1,5 @@
 from concurrent.executors import ThreadPoolExecutor
-from concurrent.futures.async import *
+from concurrent.futures.threaded import *
 import time
 import math
 import functools

@@ -292,7 +292,7 @@ def wrap_future(fut, *, loop=None):
     """Wrap concurrent.futures.Future object."""
     if isinstance(fut, Future):
         return fut
-    assert isinstance(fut, concurrent.futures.async.Future), \
+    assert isinstance(fut, concurrent.futures.threaded.Future), \
         'concurrent.futures.async.Future is expected, got {!r}'.format(fut)
     if loop is None:
         loop = events.get_event_loop()

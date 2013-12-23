@@ -1,4 +1,4 @@
-from concurrent.futures.async import Future
+from concurrent.futures.threaded import Future
 
 FIRST_COMPLETED = 'FIRST_COMPLETED'
 FIRST_EXCEPTION = 'FIRST_EXCEPTION'

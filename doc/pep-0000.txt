@@ -1,5 +1,5 @@
 PEP:               0000
-Title:             Composable futures for reactive programming
+Title:             Unifying Future implementation
 Version:           $Revision$
 Last-Modified:     $Date$
 Author:            Sergiii Mikhtoniuk <mikhtonyuk@gmail.com>
@@ -13,6 +13,11 @@ Post-History:
 ========
 Abstract
 ========
+
+This is a proposal for unification of Future classes of
+``concurrent.futures`` and ``asyncio`` packages.
+
+--
 
 This is a proposal for API improvement of ``concurrent.futures`` which
 enables reactive programming in Python. It provides means for 
