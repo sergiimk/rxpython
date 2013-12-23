@@ -1,10 +1,45 @@
-from .future_core import FutureBase
+from .future_core import FutureCore
 from threading import Lock
 import functools
 
 
 class FutureExtensions(object):
     """Mixin class for Future combination functions."""
+
+    #todo: completed optimization
+    @classmethod
+    def successful(cls, result=None, clb_executor=None):
+        """Returns successfully completed future.
+
+        Args:
+            result: value to complete future with.
+            clb_executor: default Executor to use for running callbacks (default - Synchronous).
+        """
+        f = cls(clb_executor)
+        f.set_result(result)
+        return f
+
+    @classmethod
+    def failed(cls, exception, clb_executor=None):
+        """Returns failed future.
+
+        Args:
+            exception: Exception to set to future.
+            clb_executor: default Executor to use for running callbacks (default - Synchronous).
+        """
+        f = cls(clb_executor)
+        f.set_exception(exception)
+        return f
+
+    @classmethod
+    def completed(cls, fun, clb_executor=None):
+        """Returns successful or failed future set from provided function."""
+        f = cls(clb_executor)
+        try:
+            f.set_result(fun())
+        except Exception as ex:
+            f.set_exception(ex)
+        return f
 
     def recover(self, fun_ex, executor=None):
         """Returns future that will contain result of original if it
@@ -21,8 +56,14 @@ class FutureExtensions(object):
     def _recover(cls, self, fun_ex, executor=None):
         assert callable(fun_ex), "Future.recover expects callable"
         f = cls(self._executor)
-        self.on_success(f._success)
-        self.on_failure(lambda ex: f._complete(fun_ex, ex), executor=executor)
+
+        def on_done_recover(fut):
+            if fut.exception() is None:
+                f.set_result(fut.result())
+            else:
+                f._complete(fun_ex, fut.exception())
+
+        self.add_done_callback(on_done_recover, executor=executor)
         return f
 
     def map(self, fun_res, executor=None):
@@ -39,8 +80,14 @@ class FutureExtensions(object):
     def _map(cls, self, fun_res, executor=None):
         assert callable(fun_res), "Future.map expects callable"
         f = cls(self._executor)
-        self.on_success(lambda res: f._complete(fun_res, res), executor=executor)
-        self.on_failure(f._failure)
+
+        def on_done_map(fut):
+            if fut.exception() is None:
+                f._complete(fun_res, fut.result())
+            else:
+                f.set_exception(fut.exception())
+
+        self.add_done_callback(on_done_map, executor=executor)
         return f
 
     def then(self, future_fun, executor=None):
@@ -60,16 +107,17 @@ class FutureExtensions(object):
 
         f = cls(self._executor)
 
-        def start_next(_):
-            try:
-                f2 = future_fun if isinstance(future_fun, FutureBase) else future_fun()
-                f2.on_success(f._success)
-                f2.on_failure(f._failure)
-            except Exception as ex:
-                f._failure(ex)
+        def on_done_start_next(fut):
+            if fut.exception() is None:
+                try:
+                    f2 = future_fun if isinstance(future_fun, FutureCore) else future_fun()
+                    f2.add_done_callback(f._set_from)
+                except Exception as ex:
+                    f.set_exception(ex)
+            else:
+                f.set_exception(fut.exception())
 
-        self.on_success(start_next, executor=executor)
-        self.on_failure(f._failure)
+        self.add_done_callback(on_done_start_next, executor=executor)
         return f
 
     def fallback(self, future_fun, executor=None):
@@ -90,16 +138,17 @@ class FutureExtensions(object):
 
         f = cls(self._executor)
 
-        def start_fallback(_):
-            try:
-                f2 = future_fun if isinstance(future_fun, FutureBase) else future_fun()
-                f2.on_success(f._success)
-                f2.on_failure(f._failure)
-            except Exception as ex:
-                f._failure(ex)
+        def on_done_start_fallback(fut):
+            if fut.exception() is not None:
+                try:
+                    f2 = future_fun if isinstance(future_fun, FutureCore) else future_fun()
+                    f2.add_done_callback(f._set_from)
+                except Exception as ex:
+                    f._failure(ex)
+            else:
+                f.set_resutl(fut.result())
 
-        self.on_success(f._success)
-        self.on_failure(start_fallback, executor=executor)
+        self.add_done_callback(on_done_start_fallback, executor=executor)
         return f
 
     class comb_ctx(object):
@@ -126,16 +175,18 @@ class FutureExtensions(object):
         ctx.results = [None] * len(futures)
         ctx.left = len(futures)
 
-        def done(i, res):
-            with ctx.lock:
-                ctx.results[i] = res
-                ctx.left -= 1
-                if not ctx.left:
-                    f._success(ctx.results)
+        def done(i, fut):
+            if fut.exception() is not None:
+                f.set_exception(fut.exception())
+            else:
+                with ctx.lock:
+                    ctx.results[i] = fut.result()
+                    ctx.left -= 1
+                    if not ctx.left:
+                        f.set_result(ctx.results)
 
         for i, fi in enumerate(futures):
-            fi.on_success(functools.partial(done, i))
-            fi.on_failure(f._failure)
+            fi.add_done_callback(functools.partial(done, i))
 
         return f
 
@@ -154,8 +205,7 @@ class FutureExtensions(object):
 
         f = cls(clb_executor)
         for fi in futures:
-            fi.on_success(f._try_success)
-            fi.on_failure(f._try_failure)
+            fi.add_done_callback(f._try_set_from)
 
         return f
 
@@ -177,15 +227,17 @@ class FutureExtensions(object):
         ctx = FutureExtensions.comb_ctx()
         ctx.left = len(futures)
 
-        def on_fail(ex):
-            with ctx.lock:
-                ctx.left -= 1
-                if not ctx.left:
-                    f._failure(ex)
+        def on_done(fut):
+            if fut.exception() is None:
+                f.try_set_result(fut.result())
+            else:
+                with ctx.lock:
+                    ctx.left -= 1
+                    if not ctx.left:
+                        f.set_exception(fut.exception())
 
         for fi in futures:
-            fi.on_success(f._try_success)
-            fi.on_failure(on_fail)
+            fi.add_done_callback(on_done)
 
         return f
 
@@ -204,16 +256,3 @@ class FutureExtensions(object):
         return cls \
             .all(futures, clb_executor=clb_executor) \
             .map(lambda results: functools.reduce(fun, results, initial), executor=executor)
-
-    @classmethod
-    def from_concurrent_future(cls, cf, clb_executor=None):
-        f = cls(clb_executor)
-        cf.add_done_callback(lambda cf: f._complete(cf.result))
-        orig_cancel = f.cancel
-
-        def cancel():
-            orig_cancel()
-            cf.cancel()
-
-        f.cancel = cancel
-        return f

@@ -27,3 +27,9 @@ class Default(object):
 
             Default.CALLBACK_EXECUTOR = Synchronous
         return Default.CALLBACK_EXECUTOR
+
+    @staticmethod
+    def default_callback(future):
+        ex = future.exception()
+        if ex is not None:
+            Default.UNHANDLED_FAILURE_CALLBACK(ex)

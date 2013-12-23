@@ -1,4 +1,4 @@
-from rx.executors import ThreadPoolExecutor
+from concurrent.executors import ThreadPoolExecutor
 import unittest
 import time
 
@@ -16,7 +16,7 @@ class FutureTestBase(unittest.TestCase):
             fun()
 
         f = self.executor.submit(run_after)
-        f.on_failure(None)
+        f.add_done_callback(None)
 
     def success_after(self, timeout, value):
         def do():

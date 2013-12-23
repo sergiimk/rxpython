@@ -1,5 +1,5 @@
-from rx.executors import *
-from rx.futures import *
+from concurrent.executors import *
+from concurrent.futures.async import *
 import time
 import math
 import functools

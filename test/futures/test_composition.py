@@ -1,32 +1,29 @@
 from .test_base import FutureTestBase
-from rx.futures import *
+from concurrent.futures.async import *
 
 
 class FutureCompositionTest(FutureTestBase):
     def test_recover(self):
-        p = Promise()
-        f = p.future
+        f = Future()
         fr = f.recover(lambda _: None)
 
-        p.failure(TypeError())
+        f.set_exception(TypeError())
         self.assertIsNone(fr.result())
 
     def test_map(self):
-        p = Promise()
-        f1 = p.future
+        f1 = Future()
         f2 = f1.map(lambda x: x * x)
         f3 = f2.map(lambda x: x * 2)
 
-        p.success(5)
+        f1.set_result(5)
         self.assertEqual(50, f3.result())
 
     def test_map_propagates_failure(self):
-        p = Promise()
-        f1 = p.future
+        f1 = Future()
         f2 = f1.map(lambda x: x * x)
         f3 = f2.map(lambda x: x * 2)
 
-        p.failure(TypeError())
+        f1.set_exception(TypeError())
         self.assertRaises(TypeError, f3.result)
 
     def test_then(self):
@@ -101,14 +98,14 @@ class FutureCompositionTest(FutureTestBase):
         self.assertRaises(TypeError, fall.result, 10)
 
     def test_first(self):
-        futures = [Promise().future for _ in range(5)]
+        futures = [Future() for _ in range(5)]
         futures[2] = self.success_after(0.01, 123)
 
         fall = Future.first(futures)
         self.assertEqual(123, fall.result(timeout=10))
 
     def test_first_successful(self):
-        futures = [Promise().future for _ in range(5)]
+        futures = [Future() for _ in range(5)]
         futures[2] = self.raise_after(0.01, TypeError())
         futures[4] = self.success_after(0.01, 123)
 

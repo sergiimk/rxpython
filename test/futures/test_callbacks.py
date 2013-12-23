@@ -1,65 +1,56 @@
 from .test_base import FutureTestBase
-from rx.futures import *
-from rx.futures.config import Default
+from concurrent.futures.sync import *
+from concurrent.futures.sync.config import Default
 
 
 class FutureCallbacksTest(FutureTestBase):
     def test_on_success_callback(self):
-        p = Promise()
-        f = p.future
+        f = Future()
         self.clb_called = False
 
-        def on_success(res):
-            self.clb_called = res
+        def on_done(fut):
+            self.clb_called = fut.result()
 
-        f.on_success(on_success)
-        f.on_failure(lambda _: self.fail('failure callback called on success'))
+        f.add_done_callback(on_done)
 
         self.assertFalse(self.clb_called)
-        p.success(123)
+        f.set_result(123)
         self.assertEqual(123, self.clb_called)
 
     def test_on_failure_callback(self):
-        p = Promise()
-        f = p.future
+        f = Future()
         self.clb_called = False
 
-        def on_failure(ex):
-            self.assertIsInstance(ex, TypeError)
-            self.clb_called = True
+        def on_done(fut):
+            self.clb_called = fut.exception()
 
-        f.on_failure(on_failure)
-        f.on_success(lambda _: self.fail('success callback called on failure'))
+        f.add_done_callback(on_done)
 
         self.assertFalse(self.clb_called)
-        p.failure(TypeError())
-        self.assertTrue(self.clb_called)
+        f.set_exception(TypeError())
+        self.assertIsInstance(self.clb_called, TypeError)
 
     def test_callbacks_called_post_completion(self):
-        p = Promise()
-        f = p.future
+        f = Future()
         self.clb_called = False
 
-        p.success(123)
+        f.set_result(123)
 
-        def on_success(res):
-            self.clb_called = res
+        def on_done(fut):
+            self.clb_called = fut.result()
 
-        f.on_success(on_success)
-
+        f.add_done_callback(on_done)
         self.assertEqual(123, self.clb_called)
 
-    def test_cancelling_fires_failure_callback(self):
-        p = Promise()
-        f = p.future
+    def test_cancelling_fires_callback(self):
+        f = Future()
         self.clb_called = False
 
-        def on_failure(ex):
-            self.assertIsInstance(ex, CancelledError)
+        def on_done(fut):
+            self.assertIsInstance(fut.exception(), CancelledError)
             self.clb_called = True
 
-        f.on_failure(on_failure)
-        f.on_success(lambda _: self.fail('success callback called on failure'))
+        f.add_done_callback(on_done)
 
         self.assertFalse(self.clb_called)
         f.cancel()
@@ -74,12 +65,11 @@ class FutureCallbacksTest(FutureTestBase):
         Default.UNHANDLED_FAILURE_CALLBACK = staticmethod(on_unhandled)
 
         f = Future.successful(123)
-        f.on_success(lambda _: self._raise(TypeError()))
+        f.add_done_callback(lambda _: self._raise(TypeError()))
 
         self.assertIsInstance(self.clb_called, TypeError)
 
 
 if __name__ == '__main__':
     import unittest
-
     unittest.main()
