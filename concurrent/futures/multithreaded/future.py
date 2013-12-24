@@ -69,7 +69,7 @@ class Future(FutureBaseExt):
 
         If the future has been cancelled, raises CancelledError.
         If the future does not complete in specified time frame,
-        raises TimeoutError
+        raises TimeoutError.
         """
         with self._mutex:
             if self._state == _PENDING:
@@ -98,7 +98,7 @@ class Future(FutureBaseExt):
         self._mutex.notify_all()
 
     @classmethod
-    def _convert(cls, future):
+    def convert(cls, future):
         """Single-threaded futures are compatible with multithreaded."""
         if isinstance(future, cls):
             return future

@@ -1,8 +1,8 @@
 PEP:               0000
-Title:             Unifying Future implementation
+Title:             Unifying Future implementations
 Version:           $Revision$
 Last-Modified:     $Date$
-Author:            Sergiii Mikhtoniuk <mikhtonyuk@gmail.com>
+Author:            Sergii Mikhtoniuk <mikhtonyuk@gmail.com>
 Status:            None
 Type:              Standards Track
 Content-Type:      text/x-rst
@@ -14,74 +14,62 @@ Post-History:
 Abstract
 ========
 
-This is a proposal for unification of Future classes of
-``concurrent.futures`` and ``asyncio`` packages.
+This is a proposal for unification of Future classes of ``concurrent.futures`` and ``asyncio`` packages which currently have similar interfaces but are completely unrelated types.
 
---
+This proposal includes:
 
-This is a proposal for API improvement of ``concurrent.futures`` which
-enables reactive programming in Python. It provides means for 
-chaining and combining asynchronous computations without blocking 
-to wait for ``Future`` result, offers combination methods for futures, 
-allows to control execution context of future calbacks and provides
-simpler API for creating and exposing futures in other systems.
+- implementing Future class hierarchy with two leaf classes for ``coopeperative`` and ``multithreaded`` concurrency scenarios
+
+- making ``asyncio.Future`` a concrete implementation of cooperative concurrency future
+
+- providing common set of futures composition methods
+
+- unifying callback scheduling mechanism
+
+- unifying error handling strategies
 
 ==========
 Motivation
 ==========
 
-``Future`` is a well-established facility in many modern languages
-for representing asynchronous computations. It is also notable
-that many languages have converged into very similar monadic
-APIs for ``Futures`` that enable composing computations on top of
-results of yet to be completed asynchronous operations without
-blocking. This `reactive` style of programming improves resource
-utilization which otherwise would be wasted by waiting for async
-operations, such as disk and network I/O, to complete.
+``Future`` is an abstraction for representing result of asynchronous operation. It is idependent of the specific way asynchronous operation is performed, wheter it is by means of multithreading or using coroutine-based cooperative concurrency.
 
-Current implementation of Python's ``concurrent.futures`` does not 
-provide any means for such composition. Current ``Future`` is
-basically nothing more than a cancellable and waitable callback.
+Currently standard Python library has two ``Future`` types for cooperative and multithreaded concurrency: ``concurrent.futures.Future`` and ``asyncio.Future`` respectively. These types have similar interfaces, but they are completely unrelated.
 
-The power of ``Future`` monad raises with number of standard 
-libraries that use it. For example in .Net 4 ``Futures`` (``Tasks``)
-were incorporated into most of the APIs exposing asynchronous 
-operations such as File I/O, Sockets, Web Requests, LINQ. This
-allows to seamlessly combine different async operations together
-and easily reason about concurrency models of different systems.
+As a consequence:
 
-In Python however systems exposing ``Futures`` are limited to
-provided ``ThreadPool`` and ``ProcessPool`` executors. Additionally
-new libraries such as ``asyncio`` start to emerge having their own
-implementations of ``Futures``. This can be contributed to
-underdeveloped state of ``concurrent.futures`` which should 
-provide the unified implementation.
+- It is hard to reason about interoperability of code with different concurrency models.
 
-Proposed solution
+- Implementing concurrency-agnostic functionality operating on futures is highly error-prone sice implmentation needs to rely soley on callbacks and duck-typing.
+
+- Implementations have different error handling strategies.
+
+- Composition methods such as ``concurrent.futures.wait`` and ``asyncio.wait`` are duplicated for different types of futures, although they can be implemented in concurrency-independent way.
+
+- Cooperative concurrency ``Future`` is tightly coupled with ``asyncio`` package.
+
+- ``concurrent.future.Future`` is tightly coupled to provided executors.
+
+
+Proposed Solution
 -----------------
 
-Proposed imporvements to ``concurrent.futures`` API include:
+Proposed solution includes:
 
-* Futures composability - extensive set of methods for combining
-  chaining and sequencing async computations without blocking or
-  leaving ``Future`` monad.
+- Bringing cooperative and multithreaded futures under single type hierarchy.
 
-* Simple API for exposing ``Futures`` in your own systems - proposed
-  solution is based on proven design of separation of ``Future``
-  object representing result of async operation, and ``Promise``
-  object representing system's obligation to complete ``Future``
-  returned to client at some point of time.
+- Defining ``concurrent.futures.cooperative.Future`` class for cooperative concurrency scenario, preserving interface of current ``asyncio.Future`` (purely call-based, without any blocking methods).
 
-* Restricted scope of implementation - proposed API reduces
-  number of restrictions placed on implementations of async
-  systems making it more versatile. Specific implementations
-  of async schedulers are considered to be out of scope of this
-  package, encouraging other modules to provide ``Future`` based
-  APIs.
+- Defining ``concurrent.futures.multithreaded.Future`` class which ensures thread-safety of core ``Future`` state and adds blocking operations.
 
-* Greater control of execution context - ability to control
-  executor for `Future` callbacks and combination methods.
-  This topic was not addressed by original implementation at all.
+- Implementing common unhandled error policy and callback scheduling mechanism.
+
+- Subclassing ``asyncio.Future`` from ``cooperative.Future`` while adding only methods specific to ``yield from``.
+
+- Implementing ``concurrent.futures.Future`` in terms of ``concurrent.futures.multithreaded.Future`` for backward-compatibility, while deprecating its use (espesially discouraging use of ``running()`` and ``set_running_or_notify_cancel()`` methods as posing to much restrictions on scheduler implementations).
+
+- Implementing common set of ``Future`` composition methods (such as ``all()``, ``first()``, ``first_sucessful()`` etc.).
+
 
 =============
 Specification
@@ -89,343 +77,277 @@ Specification
 
 Proposed package defines following abstractions:
 
-- ``Executor`` - a contract for scheduling callbacks. It is
-  only required for callbacks scheduling and does not
-  intended to pose any restrictions on implementations
-  of systems exposing async operations.
-
 - ``Future`` - represents result of async operation which is 
   expected to be completed by some async system.
 
-- ``Promise`` - represents a ``Future`` on the side of the
-  async system, it is not exposed to client and is the only
-  correct way of setting result to the ``Future``.
+- ``Executor`` - a callable object used for scheduling callbacks. For example in cooperative concurrency scenario this can be ``event_loop.call_soon()`` method, and for multithreaded case it can be either ``thread pool`` for scheduling callbacks on different thread), or ``Synchronous`` scheduler for running callback in same context as processing (if acceptable).
 
-Future core interface
----------------------
 
-``Future`` is a client-facing object returned by systems which 
-expose asynchronous APIs. Main way to interact with ``Futures``
-is to use callbacks and combination methods to chain computations
-on top of result that is yet to be returned.
+Future type hierarcy
+--------------------
 
-``@property is_completed -> bool``
+``Future`` type hierarchy in package ``concurrent.futures`` consists of:
 
-	Returns True if future is completed or cancelled.
+- ``FutureBase`` class, implementing core ``Future`` state handling, as well as callback maintenance and invocation.
 
-``@property is_cancelled -> bool``
+- ``FutureBaseExt`` class, inherits ``FutureBase`` and adds composition and convenience methods on top of ``FutureBase`` interface.
 
-	Returns True if the future cancellation was requested.
+- ``cooperative.Future`` class, inherits ``FutureBaseExt`` and playing role as base class for all cooperative concurrency ``Future`` implementations (such as ``asyncio.Future``).
 
-``cancel() -> bool``
+- ``multithreaded.Future`` class, inherits ``FutureBaseExt`` and serves basic implementation for ``Futures`` used in multithreaded scenarios. It adds ability to for blocking on ``result()`` and ``exception()`` methods with configurable timeout.
 
-	Requests cancellation of future. Returns True if future was not
-	yet completed or cancelled.
 
-``on_success(fun_res, executor=None)``
+FutureBase interface
+--------------------
 
-	Specified function will be called upon successful future completion.
-	fun_res - function that accepts one result argument.
-	executor - context to run callback in (default - Synchronous).
+``FutureBase`` is a common interface between futures of all concurrency models. It only exposes callback subscription as a primary way of handling ``Future`` results.
 
-``on_failure(fun_ex, executor=None)``
+``FutureBase`` interface is the same as of current implementation of ``asyncio.Future``, with the exception of new ``try_set_*`` convenience methods.
 
-	Specified function will be called upon future failure.
-	fun_ex: function that accepts one exception argument.
-	executor: context to run callback in (default - Synchronous).
+``__init__(*, clb_executor=None)``
 
-``wait(timeout=None) -> bool``
+	Initializes future instance. 
 
-	Blocking wait for future to complete. timeout - time in seconds
-	to wait for completion (default - infinite). Returns True if
-	future completes within timeout.
+	``clb_executor`` specifies default executor object for scheduling callbacks (by default set from ``config.Default.CALLBACK_EXECUTOR``)
 
-``result(timeout=None) -> object``
+``add_done_callback(fun_res, *, executor=None)``
 
-	Blocking wait for future result. timeout - time in seconds to wait
-	for completion (default - infinite). Returns Future result value.
+	Add a callback to be run when the future becomes done.
 
-	Raises:
-		``TimeoutError``: if future does not complete within timeout.
-		``CancelledError``: if future cancellation was requested,
-		``Exception``: if future was failed.
+	The callback is called with a single argument - the future object. If the future is already done when this is called, the callback is scheduled with call_soon.
 
-	This is one of few ways to drop Future monad, don't use unless it is
-	absolutely necessary, prefer future composition.
+``remove_done_callback(fn)``
 
-``exception(timeout=None) -> Exception``
+	Remove all instances of a callback from the "call when done" list.
 
-	Blocking wait for future exception. timeout: time in seconds to wait
-	for completion (default - infinite). Returns Exception future failed
-	with, including CancelledError, or None if succeeded.
-	Raises ``TimeoutError`` if future does not complete within timeout.
+	Returns the number of callbacks removed.
 
-	This is one of few ways to drop Future monad, don't use unless it is
-	absolutely necessary, prefer future composition.
+``cancelled()``
 
-``@staticmethod successful(result=None, clb_executor=None) -> Future``
+	Return True if the future was cancelled.
 
-	Returns successfully completed future. result - value to
-	complete future with, clb_executor - default Executor to
-	use for running callbacks (default - Synchronous).
+``done()``
 
-``@staticmethod failed(exception, clb_executor=None) -> Future``
+	Return True if the future is done.
 
-	Returns failed future. exception - Exception to set to future,
-	clb_executor - default Executor to use for running
-	callbacks (default - Synchronous).
+	Done means either that a result / exception are available, or that the future was cancelled.
 
-``@staticmethod completed(fun, *args, clb_executor=None) -> Future``
+``result()``
 
-	Returns successful or failed future set from provided function.
+	Return the result this future represents.
 
-Promise interface
------------------
+	If the future has been cancelled, raises CancelledError. If the future's result isn't yet available, raises InvalidStateError. If the future is done and has an exception set, this exception is raised.
 
-Promise is an only intended way of creating ``Futures``. It is intended
-to be inaccessible to clients of systems which provide async operations
-and is the only right way to set result to the future given to client.
+``exception()``
 
-``Promise(clb_executor=None)``
+	Return the exception that was set on this future.
 
-	Creates new ``Promise`` with associated ``Future``.
-	clb_executor - specifies default ``Executor`` for running
-	``Future.on_success()`` and ``Future.on_failure()`` callbacks
-	(default - Synchronous).
+	The exception (or None if no exception was set) is returned only if the future is done.  If the future has been cancelled, raises CancelledError.  If the future isn't done yet, raises
+	InvalidStateError.
 
-``@property future -> Future``
+``cancel()``
 
-	Returns associated future instance.
+	Cancel the future and schedule callbacks.
 
-``@property is_completed` -> bool`
+	If the future is already done or cancelled, return False.  Otherwise, change the future's state to cancelled, schedule the callbacks and return True.
 
-	Returns True if associated future is completed or cancelled.
+``set_result(result)``
 
-``@property is_cancelled -> bool``
+	Mark the future done and set its result.
 
-	Returns True if the future cancellation was requested by client.
+	If the future is already done when this method is called, raises InvalidStateError.
 
-``success(result)``
+``try_set_result(result)``
 
-	Completes associated future with provided value.
-	Raises ``IllegalStateError`` if future value was already set.
+	Attempts to mark the future done and set its result.
 
-``try_success(result) -> bool``
+	Returns False if the future is already done when this method is called.
 
-	Completes associated future with provided value.
-	Returns True if future value was set and False if it was
-	already set before.
+``set_exception(exception)``
 
-``failure(exception)``
+	Mark the future done and set an exception.
 
-	Completes associated future with provided exception.
-	Raises ``IllegalStateError`` if future value was already set.
+	If the future is already done when this method is called, raises InvalidStateError.
 
-``try_failure(exception) -> bool``
+``try_set_exception(exception)``
 
-	Completes associated future with provided exception.
-	Returns True if future value was set and False if it was
-	already set before.
+	Attempts to mark the future done and set an exception.
 
-``complete(fun, *vargs, **kwargs)``
+	Returns False if the future is already done when this method is called.
 
-	Executes provided function and sets future value from result
-	or exception if function raises.
-	Raises ``IllegalStateError`` if future value was already set.
+``set_from(other)``
 
-``try_complete(fun, *vargs, **kwargs) -> bool``
+	Copies result of another future into this one.
 
-	Executes provided function and sets future value from result
-	or exception if function raises.
-	Returns True if future value was set and False if it was
-	already set before.
+	Copies either result, exception, or cancelled state depending on how other future was completed.
 
-Future composition
-------------------
+	If this future is already done when this method is called, raises InvalidStateError. Other future should be done() before making this call.
 
-Composition methods allow you to make computations on ``Future``
-result without resorting to blocking waits. They also provide
+``try_set_from(other)``
+	
+	Copies result of another future into this one.
+
+	Copies either result, exception, or cancelled state depending on how other future was completed.
+
+	Returns False if this future is already done when this method is called. Other future should be done() before making this call.
+
+
+FutureBaseExt interface
+-----------------------
+
+``FutureBaseExt`` class adds various composition and convenience methods on top of ``FutureBase`` interface.
+
+Composition methods allow making simple computations on ``Future`` result without resorting to blocking (with either ``yield from`` or timeouts). They also provide
 means for combining multiple different futures together.
 
-``recover(fun_ex, executor=None) -> Future``
+``recover(fun_ex_or_value, executor=None) -> Future``
 
-	Returns future that will contain result of original if it
-	completes successfully, or set from result of provided function
-	in case of failure. fun_ex - function that accepts Exception
-	parameter, executor - Executor to use when performing call to
-	function (default - Synchronous).
+	Returns future that will contain result of original if it completes successfully, or set from result of provided function in case of failure. New future inherits default callback executor from original future. Propagates exceptions from function as well as cancellation.
+
+	fun_ex_or_value: function that accepts Exception parameter or just value to use in error case.
+	parameter, executor - Executor to use when performing call to function.
 
 ``map(fun_res, executor=None) -> Future``
 
-	Returns future which will be set from result of applying
-	provided function to original future value. fun_res - function
-	that accepts original result and returns new value,
-	executor - Executor to use when performing call to
-	function (default - Synchronous).
+	Returns future which will be set from result of applying provided function to original future value. New future inherits default callback executor from original future. Propagates exceptions from function as well as cancellation.
+
+	fun_res - function that accepts original result and returns new value,
+	executor - Executor to use when performing call to function.
 
 ``then(future_fun, executor=None) -> Future``
 
-	Returns future which represents two futures chained one
-	after another. Failures are propagated from first future,
-	from second future and from callback function.
-	future_fun - function that returns future to be chained
-	after successful completion of first one
-	(or Future instance directly), executor - Executor to use
-	when performing call to function (default - Synchronous).
+	Returns future which represents two futures chained one after another. Failures are propagated from first future, from second future and from callback function. Cancellation is propagated both ways.
+
+	future_fun - either function that returns future to be chained after successful completion of first one, or Future instance directly.
+	executor - Executor to use when performing call to function.
 
 ``fallback(future_fun, executor=None) -> Future``
 
-	Returns future that will contain result of original if
-	it completes successfully, or will be set from future
-	returned from provided function in case of failure.
-	future_fun - function that returns future to be used for
-	fallback (or Future instance directly), executor - Executor
-	to use when performing call to function (default - Synchronous).
+	Returns future that will contain result of original if it completes successfully, or will be set from future returned from provided function in case of failure. Provided function is called only if original future fails. Cancellation is propagated both ways.
 
-``@staticmethod all(futures, clb_executor=None) -> Future``
+	future_fun - either function that returns future to be used for fallback, or Future instance directly.
+	executor - Executor to use when performing call to function.
 
-	Transforms list of futures into one future that will contain
-	list of results. In case of any failure future will be failed
-	with first exception to occur. futures - list of futures
-	to combine, clb_executor - default executor to use when running
-	new future's callbacks (default - Synchronous).
+``@classmethod all(futures, clb_executor=None) -> Future``
 
-``@staticmethod first(futures, clb_executor=None) -> Future``
+	Transforms list of futures into one future that will contain list of results. In case of any failure future will be failed with first exception to occur. Cancellation is propagated both ways - if aggregate future is cancelled it will cancel all child futures.
 
-	Returns future which will be set from result of first future
-	to complete, both successfully or with failure.
-	futures - list of futures to combine, clb_executor - default
-	executor to use when running new future's callbacks
-	(default - Synchronous).
+	futures - list of futures to combine
+	clb_executor - default executor to use when running new future's callbacks.
 
-``@staticmethod first_successful(futures, clb_executor=None) -> Future``
+``@classmethod first(futures, clb_executor=None) -> Future``
 
-	Returns future which will be set from result of first
-	future to complete successfully, last detected error
-	will be set in case when all of the provided future fail.
-	futures - list of futures to combine, clb_executor - default
-	executor to use when running new future's callbacks
-	(default - Synchronous).
+	Returns future which will be set from result of first future to complete, both successfully or with failure. Cancellation is propagated both ways - if aggregate future is cancelled it will cancel all child futures.
 
-``@staticmethod reduce(futures, fun, *vargs, executor=None, clb_executor=None) -> Future``
+	futures - list of futures to combine.
+	clb_executor - default executor to use when running new future's callbacks.
 
-	Returns future which will be set with reduced result of
-	all provided futures. In case of any failure future will
-	be failed with first exception to occur. futures - list
-	of futures to combine, fun - reduce-compatible function,
-	executor - Executor to use when performing call to function
-	(default - Synchronous), clb_executor - default executor
-	to use when running new future's callbacks
-	(default - Synchronous).
+``@classmethod first_successful(futures, clb_executor=None) -> Future``
+
+	Returns future which will be set from result of first future to complete successfully, last detected error will be set in case when all of the provided future fail. In case of cancelling aggregate future all child futures will be cancelled. Only cancellation of all child future triggers cancellation of aggregate future.
+
+	futures - list of futures to combine.
+	clb_executor - default executor to use when running new future's callbacks.
+
+``@classmethod reduce(futures, fun, *vargs, executor=None, clb_executor=None) -> Future``
+
+	Returns future which will be set with reduced result of all provided futures. In case of any failure future will be failed with first exception to occur. Cancellation is propagated both ways - if aggregate future is cancelled it will cancel all child futures.
+
+	futures - list of futures to combine, fun - reduce-compatible function.
+	executor - Executor to use when performing call to function.
+	clb_executor - default executor to use when running new future's callbacks.
+
+``@classmethod convert(future) -> Future``
+	
+	Performs future type conversion.
+        
+	It either makes sure that passed future is safe to use with current 
+	future type, or raises TypeError indicating incompatibility.
+
+	Override this method in leaf future classes to enable
+	compatibility between different Future implementations.
+
+
+cooperative.Future interface
+------------------------------
+
+``cooperative.Future`` inherits ``FutureBaseExt`` and does not have any additional operations. Its only pupose is to separate concurrent and multithreaded branches of hierarchy.
+
+
+multithreaded.Future interface
+------------------------------
+
+``multithreaded.Future`` adds thread-safety and blocking operations to ``FutureBase`` methods.
+
+``result(*, timeout=None)``
+
+	Return the result this future represents. If the future has not yet been completed this method with block for for up to timeout seconds. If timeout is not specified it will block for unlimited time.
+
+	If the future has been cancelled, raises CancelledError. If the future does not complete in specified time frame, raises TimeoutError. If the future is done and has an exception set, this exception is raised.
+
+``exception(*, timeout=None)``
+
+	Return the exception that was set on this future. If the future has not yet been completed this method with block for for up to timeout seconds. If timeout is not specified it will block for unlimited time.
+
+	If the future has been cancelled, raises CancelledError. If the future does not complete in specified time frame, raises TimeoutError.
+
 
 Executors
 ---------
 
-Besides the services which expose asynchronous APIs returning
-futures executors appear in many ``Future`` methods to allow
-controlling the context in which different callbacks are executed.
-Each ``Future`` can be assigned a default callback executor when
-created. This allows executors to control suggested context of
-callbacks.
+``Future`` API allows two ways of specifying execution context for callbacls. First is by setting default callback executor on ``Future`` creation. Second is by specifying it on per-callback basis when registering the callback.
 
-For example if a service implements HTTP request multiplexing
-in dedicated thread it is dangerous to run user's callbacks
-synchronously because they may block or run for considerably
-long time, thus blocking the whole HTTP request
-processing thread. So this service can override default
-callback executor and set it to `ThreadPoolExecutor` when
-returning future to client. This way every callback of this
-future will run in ThreadPool thread unless it specifies
-different executor explicitly.
+Controlling default callback context may be necessary for some services. For example if a service implements HTTP request multiplexing in dedicated thread, it's dangerous to run user's callbacks synchronously, because they may block or run for considerably long time. Such behavior would block the whole HTTP request processing thread. Such services can override default callback executor and set it to, for example, to ``ThreadPoolExecutor`` when returning future to client. This way every callback of this future will run in ``ThreadPool`` thread unless user specifies different executor explicitly.
 
-``Executor`` contract expected by proposed package includes
-single method:
+``Executor`` is a callable object which receives function to execute:
 
-``submit(fn, *args, **kwargs) -> Future``
+``__call__(fn, *args, **kwargs)``
 
-	Schedules function for execution and return `Future`
-	representing pending result.
+	Schedules function for execution.
 
-By default all futures use ``SynchronousExecutor`` for all
-callbacks. This can be changed globally by setting
-``config.Default.CALLBACK_EXECUTOR`` field on application
-startup, but generally default executor should be controlled
-on per-service basis.
+By default all futures use ``SynchronousExecutor`` for all callbacks. This can be changed globally by setting ``config.Default.CALLBACK_EXECUTOR`` field on application startup, but generally default executor should be controlled on per-service basis.
+
 
 Unhandled errors policy
 -----------------------
 
-Errors in async operations should not go unnoticed, that's why
-proposed package expects that all ``Future`` failures will be
-handled explicitly by getting ``result`` or ``exception``,
-setting ``on_failure`` callbacks, or using composition methods.
+Errors in async operations should not go unnoticed, that's why proposed package expects that all ``Future`` failures will be handled explicitly by callbacks, by getting ``result`` or ``exception``, or by use of composition methods. Unhandled error is detected when ``Future`` object is about to be deleted by GC and none of the above methods did not process the exception. Unhandled error may also be result of uncaught exception in the callback itself.
 
-Unhandled error may be result of uncaught exception in ``on_sucess``
-or ``on_failure`` callback which is trapped by ``Executor``, or
-be raised from ``Future`` who's failure was not handled explicitly.
-In later case unhandled error is raised when ``Future`` object is
-about to be deleted by GC.
+To avoid exceptions being lost package defines default callback for unhandled failures which logs errors to ``logging.error`` by default. You can override this behavior by setting ``config.Default.UNHANDLED_FAILURE_CALLBACK`` field on application startup.
 
-To avoid exceptions being lost package defines default callback
-for unhandled failures which logs errors to ``sys.stderr``.
-You can override this behavior by setting
-``config.Default.UNHANDLED_FAILURE_CALLBACK`` field on application
-startup, but avoid ignoring errors. It is always better to
-explicitly ignore error of one future by calling
-``future.on_failure(None)`` than having bunch of exceptions go
-unnoticed.
+It is possible to ignore errors explicitly using ``f.recover(None)``.
 
-Performance overhead
---------------------
 
-Overhead of ``Future`` comparing to simple callback is:
+Compatibility between different types of futures
+------------------------------------------------
 
-- one condition variable for protecting state from concurrent
-  access and waiting for completion
-- fields for holding future state, result value, and failure
-  handling status
-- two lists for holding pending ``on_sucess`` and ``on_failure``
-  callbacks
-- field for default callback executor reference
+For applications which may use both cooperative and multithreaded concurrency models at the same time there's a high risk of mixing different future types in composition methods. If this goes unnoticed it may cause race conditions to occur.
 
-Since by default callbacks are executed using synchronous
-executor, in many cases all overhead is avoided using lightweight
-read-only future objects for representing successful and
-failed futures.
+To prevent this, all composition methods of ``FutureBaseExt`` perform type checking, raising ``TypeError`` when class for which composition method was called does not correspond to class of ``Future`` instances. This check is performed by ``FutureBaseExt.convert(future)`` method.
+
+However this restriction is too strict. For example it is safe to use callbacks of ``cooperative.Future`` in composition methods of ``multithreaded.Future``. Also ``multithreaded.Future`` can be easily wrapped into ``asyncio.Future`` by using ``loop.call_soon_threadsafe()`` method. To allow such compatibility and conversions ``multithreaded.Future`` and ``asyncio.Future`` override ``convert(future)`` method.
+
+Resulting conversions are:
+
+- ``multithreaded.Future`` compatible with all subclasses of ``concurrent.Future``
+
+- ``asyncio.Future`` compatible with all subclasses of itself (``asyncio.Task``)
+
+- ``asyncio.Future`` converts subclasses of ``multithreaded.Future`` via wrapping
+
+As a result, this compatibility mechanism allows mixing futures of different types and nature safely in composition methods.
+
 
 ==============
 Usage examples
 ==============
-
-Completing futures with promises
---------------------------------
-
-::
-
-	from concurrent.futures import Promise
-	from threading import Thread
-	import time
-
-	def request_blocking(request):
-		time.speep(10)
-		return request
-
-	def request_async(request):
-		p = Promise()
-		t = Thread(target=lambda: p.success(request_blocking(request)))
-		t.start()
-		return p.future
-
-	f = request_async("echo")
-	f.on_success(lambda resp: print("response: " + resp))
-	f.on_failure(lambda ex: print("request failed"))
 
 Computations
 ------------
 
 ::
 
-	from concurrent.futures import Future
+	from concurrent.futures.multithreaded import Future
 	from concurrent.executors import ThreadPoolExecutor
 
 	with ThreadPoolExecutor(10) as tp:
@@ -442,7 +364,7 @@ Chaining requests
 
 ::
 
-	from concurrent.futures import Future
+	from concurrent.futures.multithreaded import Future
 
 	def authenticate_async(login, pwd):
 		return Future.successful(True)
@@ -453,7 +375,7 @@ Chaining requests
 	fauth = authenticate_async('john', 'swordfish')
 	frequest = fauth.then(lambda: request_async('echo'))
 
-	frequest.on_success(lambda resp: print("auth and request successful: " + resp))
+	resul = yieldfrequest.on_success(lambda resp: print("auth and request successful: " + resp))
 	frequest.on_failure(lambda ex: print("auth or request failed"))
 
 
@@ -462,7 +384,7 @@ Fallbacks
 
 ::
 
-	from concurrent.futures import Future
+	from concurrent.futures.multithreaded import Future
 
 	def connect_ssl():
 		return Future.failed(SocketError())
@@ -477,23 +399,19 @@ Hedged requests
 
 ::
 
-	from concurrent.futures import Future
-	from concurrent.executors import ThreadPoolExecutor
+	import asyncio
 	import random
-	import time
-
+	
 	def request(ip):
-		time.sleep(random.random())
+		yield from asyncio.sleep(random.random())
 		if random.choice([True, False]):
 			return "ok"
 		raise Exception("fail")
 
-	with ThreadPoolExecutor(10) as tp:
-		IPs = ['ip1', 'ip2', 'ip3', 'ip4', 'ip5']
-		futures = [tp.submit(request, ip) for ip in IPs]
-		fresponse = Future.first_successful(futures)
-
-		print(fresponse.result())
+	IPs = ['ip1', 'ip2', 'ip3', 'ip4', 'ip5']
+	futures = [asyncio.Task(request(ip)) for ip in IPs]
+	response = yield from asyncio.Future.first_successful(futures)
+	print(response)
 
 ======================
 Backward compatibility
@@ -502,75 +420,45 @@ Backward compatibility
 Interface differences
 ---------------------
 
-Executor interface reduced to:
+``concurrent.futures.Future``
 
-::
-
-	class Executor:
-		def submit(fn, *args, **kwargs) -> Future
-
-Future interface differences:
-
-``cancel()``
-
-	Method return value does not relate to state of execution
-	of async operation. Communicating cancellation to executors
-	of async operations may be too restrictive for some
-	implementations and can cause unwanted blocking. Instead
-	cancel method returns True when future is not yet completed
-	and cancelled state was successfully set (similarly to
-	`Promise.try_failure()`). Using `Promise.is_cancelled()`
-	executor of async operation can then periodically check
-	whether future's result is still expected.
-
-``cancelled()``
-
-	Method replaced with `is_cancelled` property
+	Class is deprecated in favor of ``concurrent.futures.multithreaded.Future``.
 
 ``running()``
 
-	Method removed as too restrictive for some implementations,
-	not useful, and encouraging bad design.
-
-``done()``
-
-	Method replaced with `is_completed` property
-
-``exception()``
-
-	Method does not raise `CancelledError` but returns it instead
-	to unify the error handling logic.
+	Left for compatibility but always returns ``False``.
 
 ``set_running_or_notify_cancel()``
-``set_result()``
-``set_exception()``
-
-	Methods for future completion removed in favour of using `Promise`.
+	
+	Left for compatibility but simply returns ``cancelled()`` result.
 
 Module functions differences:
 
-``wait()``
-``as_completed()``
+``concurrent.futures.wait()``
 
-	Functions removed to encourage use of future composition.
-	`Future.result()` and `Future.exception()` are only ways
-	to drop `Future` monad.
+``concurrent.futures.as_completed()``
 
-Concrete implementations of executor are considered to be beyond the 
-scope of ``concurrent.futures`` module, but for backward compatibility
-implementations of ``ThreadPoolExecutor`` and ``ProcessPoolExecutor``
-remain and return new futures, but will be deprecated. Other modules
-such as ``threading`` and ``multipocessing`` are more logical place
-for this functionality.
+``asyncio.wait()``
+
+``asyncio.gather()``
+
+	Function are deprecated in favor of combination methods and use them internally.
+
+``asyncio.wrap_future()``
+
+	Deprecated in favor of ``Future.convert(future)``, all composition methods perform this conversion automatically.
+
+Concrete implementations of schedulers are considered to be beyond the scope of ``concurrent.futures`` module, so they are moved into ``concurrent.schedulers`` sub-package. For backward compatibility ``ThreadPoolExecutor`` and ``ProcessPoolExecutor`` are still accessible from ``concurrent.futures`` package.
+
 
 ===================
 Further development
 ===================
 
 - ``Observable`` abstraction for asynchronous streams of data.
-- Future-based interface support in other modules (``threading``,
-  ``multiprocessing``, ``asyncio``).
+- ThreadPool-based scheduler allowing non-blocking future cancellation by timeout. 
 - Debugging facilities for tracing and graphing future chains.
+
 
 ==========
 References

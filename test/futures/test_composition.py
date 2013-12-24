@@ -10,34 +10,40 @@ class FutureCompositionTest(FutureTestBase):
         coop = COOP.Future()
         mt = MT.Future()
 
-        self.assertIs(mt, MT.Future._convert(mt))
-        self.assertIs(coop, COOP.Future._convert(coop))
+        self.assertIs(mt, MT.Future.convert(mt))
+        self.assertIs(coop, COOP.Future.convert(coop))
 
     def test_conversions_mt_compatible_with_coop(self):
         import concurrent.futures.cooperative as COOP
         import concurrent.futures.multithreaded as MT
 
         coop = COOP.Future()
-        self.assertIs(coop, MT.Future._convert(coop))
+        self.assertIs(coop, MT.Future.convert(coop))
 
     def test_conversions_coop_incompatible_with_mt(self):
         import concurrent.futures.cooperative as COOP
         import concurrent.futures.multithreaded as MT
 
         mt = MT.Future()
-        self.assertRaises(TypeError, COOP.Future._convert, mt)
+        self.assertRaises(TypeError, COOP.Future.convert, mt)
 
     def test_asyncio_wrapping_mt(self):
         import concurrent.futures.multithreaded as MT
         import asyncio
 
         mt = MT.Future()
+        self.assertIsNot(mt, asyncio.Future.convert(mt))
 
-        self.assertIsNot(mt, asyncio.Future._convert(mt))
-
-    def test_recover(self):
+    def test_recover_clb(self):
         f = Future()
         fr = f.recover(lambda _: None)
+
+        f.set_exception(TypeError())
+        self.assertIsNone(fr.result())
+
+    def test_recover_value(self):
+        f = Future()
+        fr = f.recover(None)
 
         f.set_exception(TypeError())
         self.assertIsNone(fr.result())
@@ -168,7 +174,7 @@ class FutureCompositionTest(FutureTestBase):
         fconnect = connect_plain().fallback(connect_ssl)
         self.assertTrue(fconnect.result(timeout=10))
 
-    def test_fallback_cancellation_back(self):
+    def test_fallback_cancellation_back_1(self):
         def connect_plain():
             return self.raise_after(0.01, IOError())
 
@@ -180,6 +186,24 @@ class FutureCompositionTest(FutureTestBase):
 
         f2.cancel()
         self.assertTrue(f1.cancelled())
+
+    def test_fallback_cancellation_back_2(self):
+        def connect_plain():
+            return Future.failed(IOError())
+
+        fmid = None
+
+        def connect_ssl():
+            nonlocal fmid
+            fmid = self.success_after(0.01, True)
+            return fmid
+
+        f1 = connect_plain()
+        f2 = f1.fallback(connect_ssl)
+
+        f2.cancel()
+        self.assertFalse(f1.cancelled())
+        self.assertTrue(fmid.cancelled())
 
     def test_fallback_cancellation_forth(self):
         def connect_plain():

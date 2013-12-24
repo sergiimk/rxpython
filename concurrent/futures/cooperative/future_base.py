@@ -19,6 +19,12 @@ class FutureBase:
     _ex_handler = None
 
     def __init__(self, *, clb_executor=None):
+        """Initializes future instance.
+
+        Args:
+            clb_executor: specifies default executor object for scheduling
+            callbacks (by default set from ``config.Default.CALLBACK_EXECUTOR``)
+        """
         self._callbacks = []
         self._callbacks = []
         self._executor = clb_executor or Default.get_callback_executor()

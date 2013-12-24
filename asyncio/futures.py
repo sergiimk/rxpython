@@ -49,7 +49,7 @@ class Future(concurrent.futures.cooperative.Future):
         return cls(loop=loop)
 
     @classmethod
-    def _convert(cls, future):
+    def convert(cls, future):
         """Enables compatibility with multithreaded futures by wrapping."""
         if isinstance(future, cls):
             return future

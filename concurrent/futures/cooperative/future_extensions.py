@@ -47,17 +47,19 @@ class FutureBaseExt(FutureBase):
         except Exception as ex:
             self.set_exception(ex)
 
-    def recover(self, fun_ex, *, executor=None):
+    def recover(self, fun_ex_or_value, *, executor=None):
         """Returns future that will contain result of original if it
         completes successfully, or set from result of provided function in
         case of failure.
 
-        Args:
-            fun_ex: function that accepts Exception parameter.
-            executor: Executor to use when performing call to function (default - Synchronous).
-        """
-        assert callable(fun_ex), "Future.recover expects callable"
+        New future inherits default callback executor from original future.
+        Propagates exceptions from function as well as cancellation.
 
+        Args:
+            fun_ex_or_value: function that accepts Exception parameter or
+            just value to use in error case.
+            executor: Executor to use when performing call to function.
+        """
         f = self._new()
 
         def on_done_recover(fut):
@@ -65,8 +67,10 @@ class FutureBaseExt(FutureBase):
                 f.cancel()
             if fut.exception() is None:
                 f.set_result(fut.result())
+            elif callable(fun_ex_or_value):
+                f.complete(fun_ex_or_value, fut.exception())
             else:
-                f.complete(fun_ex, fut.exception())
+                f.set_result(fun_ex_or_value)
 
         def backprop_cancel(fut):
             if fut.cancelled():
@@ -79,6 +83,9 @@ class FutureBaseExt(FutureBase):
     def map(self, fun_res, *, executor=None):
         """Returns future which will be set from result of applying provided function
         to original future value.
+
+        New future inherits default callback executor from original future.
+        Propagates exceptions from function as well as cancellation.
 
         Args:
             fun_res: function that accepts original result and returns new value.
@@ -106,10 +113,11 @@ class FutureBaseExt(FutureBase):
     def then(self, future_fun, *, executor=None):
         """Returns future which represents two futures chained one after another.
         Failures are propagated from first future, from second future and from callback function.
+        Cancellation is propagated both ways.
 
         Args:
-            future_fun: function that returns future to be chained after successful
-            completion of first one (or Future instance directly).
+            future_fun: either function that returns future to be chained after successful
+            completion of first one, or Future instance directly.
             executor: Executor to use when performing call to function (default - Synchronous).
         """
         assert callable(future_fun), "Future.then expects callable"
@@ -122,7 +130,7 @@ class FutureBaseExt(FutureBase):
             elif fut.exception() is None:
                 try:
                     f2_raw = future_fun if isinstance(future_fun, FutureBase) else future_fun()
-                    f2 = self._convert(f2_raw)
+                    f2 = self.convert(f2_raw)
                     f2.add_done_callback(f.set_from)
                 except Exception as ex:
                     f.set_exception(ex)
@@ -140,12 +148,13 @@ class FutureBaseExt(FutureBase):
     def fallback(self, future_fun, *, executor=None):
         """Returns future that will contain result of original if it completes
         successfully, or will be set from future returned from provided
-        function in case of failure.
+        function in case of failure. Provided function is called only if original
+        future fails. Cancellation is propagated both ways.
 
         Args:
-            future_fun: function that returns future to be used for fallback
-            (or Future instance directly).
-            executor: Executor to use when performing call to function (default - Synchronous).
+            future_fun: either function that returns future to be used for
+            fallback, or Future instance directly.
+            executor: Executor to use when performing call to function.
         """
         assert callable(future_fun), "Future.fallback expects callable"
 
@@ -157,35 +166,42 @@ class FutureBaseExt(FutureBase):
             elif fut.exception() is not None:
                 try:
                     f2_raw = future_fun if isinstance(future_fun, FutureBase) else future_fun()
-                    f2 = self._convert(f2_raw)
+                    f2 = self.convert(f2_raw)
+
+                    def backprop_cancel_fallback(fut):
+                        if fut.cancelled():
+                            f2.cancel()
+
                     f2.add_done_callback(f.set_from)
+                    f.add_done_callback(backprop_cancel_fallback)
                 except Exception as ex:
                     f.set_exception(ex)
             else:
                 f.set_result(fut.result())
 
-        def backprop_cancel(fut):
+        def backprop_cancel_orig(fut):
             if fut.cancelled():
                 self.cancel()
 
         self.add_done_callback(on_done_start_fallback, executor=executor)
-        f.add_done_callback(backprop_cancel)
+        f.add_done_callback(backprop_cancel_orig)
         return f
 
     @classmethod
     def all(cls, futures, *, clb_executor=None):
         """Transforms list of futures into one future that will contain list of results.
         In case of any failure future will be failed with first exception to occur.
+        Cancellation is propagated both ways - if aggregate future is cancelled it
+        will cancel all child futures.
 
         Args:
             futures: list of futures to combine.
-            clb_executor: default executor to use when running new future's
-            callbacks (default - Synchronous).
+            clb_executor: default executor to use when running new future's callbacks.
         """
         if not futures:
             return cls.successful([], clb_executor=clb_executor)
 
-        futures = list(map(cls._convert, futures))
+        futures = list(map(cls.convert, futures))
         f = cls._new(clb_executor=clb_executor)
 
         lock = Lock()
@@ -219,17 +235,17 @@ class FutureBaseExt(FutureBase):
     @classmethod
     def first(cls, futures, *, clb_executor=None):
         """Returns future which will be set from result of first future to complete,
-        both successfully or with failure.
+        both successfully or with failure. Cancellation is propagated both ways - if
+        aggregate future is cancelled it will cancel all child futures.
 
         Args:
             futures: list of futures to combine.
-            clb_executor: default executor to use when running new future's
-            callbacks (default - Synchronous).
+            clb_executor: default executor to use when running new future's callbacks.
         """
         if not futures:
             raise TypeError("Future.first() got empty sequence")
 
-        futures = list(map(cls._convert, futures))
+        futures = list(map(cls.convert, futures))
         f = cls._new(clb_executor=clb_executor)
 
         for fi in futures:
@@ -247,17 +263,18 @@ class FutureBaseExt(FutureBase):
     def first_successful(cls, futures, *, clb_executor=None):
         """Returns future which will be set from result of first future to
         complete successfully, last detected error will be set in case
-        when all of the provided future fail.
+        when all of the provided future fail. In case of cancelling aggregate
+        future all child futures will be cancelled. Only cancellation of all
+        child future triggers cancellation of aggregate future.
 
         Args:
             futures: list of futures to combine.
-            clb_executor: default executor to use when running new future's
-            callbacks (default - Synchronous).
+            clb_executor: default executor to use when running new future's callbacks.
         """
         if not futures:
             raise TypeError("Future.first_successful() got empty sequence")
 
-        futures = list(map(cls._convert, futures))
+        futures = list(map(cls.convert, futures))
         f = cls._new(clb_executor=clb_executor)
 
         lock = Lock()
@@ -288,13 +305,14 @@ class FutureBaseExt(FutureBase):
     def reduce(cls, futures, fun, initial, *, executor=None, clb_executor=None):
         """Returns future which will be set with reduced result of all provided futures.
         In case of any failure future will be failed with first exception to occur.
+        Cancellation is propagated both ways - if aggregate future is cancelled it
+        will cancel all child futures.
 
         Args:
             futures: list of futures to combine.
             fun: reduce-compatible function.
-            executor: Executor to use when performing call to function (default - Synchronous).
-            clb_executor: default executor to use when running new future's
-            callbacks (default - Synchronous).
+            executor: Executor to use when performing call to function.
+            clb_executor: default executor to use when running new future's callbacks.
         """
         return cls \
             .all(futures, clb_executor=clb_executor) \
@@ -306,8 +324,13 @@ class FutureBaseExt(FutureBase):
         return cls(clb_executor=executor)
 
     @classmethod
-    def _convert(cls, future):
-        """Override this method in leaf future classes to enable
+    def convert(cls, future):
+        """Performs future type conversion.
+
+        It either makes sure that passed future is safe to use with current
+        future type, or raises TypeError indicating incompatibility.
+
+        Override this method in leaf future classes to enable
         compatibility between different Future implementations.
         """
 
