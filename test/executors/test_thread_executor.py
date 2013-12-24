@@ -27,6 +27,11 @@ class ThreadPoolExecutorTest(unittest.TestCase):
             f.cancel()
             self.assertRaises(CancelledError, f.result)
 
+    def test_timeouts(self):
+        f = Future()
+        self.assertRaises(TimeoutError, f.result, timeout=0)
+        self.assertRaises(TimeoutError, f.exception, timeout=0)
+
     def test_callback_executor(self):
         import threading
 

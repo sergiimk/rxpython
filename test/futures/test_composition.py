@@ -3,12 +3,58 @@ from concurrent.futures.multithreaded import *
 
 
 class FutureCompositionTest(FutureTestBase):
+    def test_conversions_same(self):
+        import concurrent.futures.cooperative as COOP
+        import concurrent.futures.multithreaded as MT
+
+        coop = COOP.Future()
+        mt = MT.Future()
+
+        self.assertIs(mt, MT.Future._convert(mt))
+        self.assertIs(coop, COOP.Future._convert(coop))
+
+    def test_conversions_mt_compatible_with_coop(self):
+        import concurrent.futures.cooperative as COOP
+        import concurrent.futures.multithreaded as MT
+
+        coop = COOP.Future()
+        self.assertIs(coop, MT.Future._convert(coop))
+
+    def test_conversions_coop_incompatible_with_mt(self):
+        import concurrent.futures.cooperative as COOP
+        import concurrent.futures.multithreaded as MT
+
+        mt = MT.Future()
+        self.assertRaises(TypeError, COOP.Future._convert, mt)
+
+    def test_asyncio_wrapping_mt(self):
+        import concurrent.futures.multithreaded as MT
+        import asyncio
+
+        mt = MT.Future()
+
+        self.assertIsNot(mt, asyncio.Future._convert(mt))
+
     def test_recover(self):
         f = Future()
         fr = f.recover(lambda _: None)
 
         f.set_exception(TypeError())
         self.assertIsNone(fr.result())
+
+    def test_recover_cancellation_back(self):
+        f = Future()
+        fr = f.recover(lambda _: None)
+
+        fr.cancel()
+        self.assertTrue(f.cancelled())
+
+    def test_recover_cancellation_forth(self):
+        f = Future()
+        fr = f.recover(lambda _: None)
+
+        f.cancel()
+        self.assertTrue(fr.cancelled())
 
     def test_map(self):
         f1 = Future()

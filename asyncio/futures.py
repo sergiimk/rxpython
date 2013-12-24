@@ -6,6 +6,7 @@ __all__ = ['CancelledError', 'TimeoutError',
 ]
 
 import concurrent.futures.cooperative
+import concurrent.futures.multithreaded
 import concurrent.futures.exceptions
 import logging
 
@@ -41,6 +42,25 @@ class Future(concurrent.futures.cooperative.Future):
             yield self  # This tells Task to wait for completion.
         assert self.done(), "yield from wasn't used with future"
         return self.result()  # May raise too.
+
+    @classmethod
+    def _new(cls, other=None, *, clb_executor=None):
+        loop = other._loop if other else None
+        return cls(loop=loop)
+
+    @classmethod
+    def _convert(cls, future):
+        """Enables compatibility with multithreaded futures by wrapping."""
+        if isinstance(future, cls):
+            return future
+        if isinstance(future, concurrent.futures.multithreaded.Future):
+            return wrap_future(future)
+        raise TypeError("{} is not compatible with {}"
+        .format(_typename(cls), _typename(type(future))))
+
+
+def _typename(cls):
+    return cls.__module__ + '.' + cls.__name__
 
 
 def wrap_future(fut, *, loop=None):

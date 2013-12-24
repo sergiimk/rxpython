@@ -15,7 +15,7 @@ class FutureBaseExt(FutureBase):
             result: value to complete future with.
             clb_executor: default Executor to use for running callbacks (default - Synchronous).
         """
-        f = cls(clb_executor=clb_executor)
+        f = cls._new(clb_executor=clb_executor)
         f.set_result(result)
         return f
 
@@ -27,14 +27,14 @@ class FutureBaseExt(FutureBase):
             exception: Exception to set to future.
             clb_executor: default Executor to use for running callbacks (default - Synchronous).
         """
-        f = cls(clb_executor=clb_executor)
+        f = cls._new(clb_executor=clb_executor)
         f.set_exception(exception)
         return f
 
     @classmethod
     def completed(cls, fun, *args, clb_executor=None, **kwargs):
         """Returns successful or failed future set from provided function."""
-        f = cls(clb_executor=clb_executor)
+        f = cls._new(clb_executor=clb_executor)
         try:
             f.set_result(fun(*args, **kwargs))
         except Exception as ex:
@@ -47,7 +47,6 @@ class FutureBaseExt(FutureBase):
         except Exception as ex:
             self.set_exception(ex)
 
-    #TODO: type of other future?
     def recover(self, fun_ex, *, executor=None):
         """Returns future that will contain result of original if it
         completes successfully, or set from result of provided function in
@@ -57,20 +56,24 @@ class FutureBaseExt(FutureBase):
             fun_ex: function that accepts Exception parameter.
             executor: Executor to use when performing call to function (default - Synchronous).
         """
-        return self._recover(self, fun_ex, executor)
-
-    @classmethod
-    def _recover(cls, self, fun_ex, executor=None):
         assert callable(fun_ex), "Future.recover expects callable"
-        f = cls(clb_executor=self._executor)
+
+        f = self._new()
 
         def on_done_recover(fut):
+            if fut.cancelled():
+                f.cancel()
             if fut.exception() is None:
                 f.set_result(fut.result())
             else:
                 f.complete(fun_ex, fut.exception())
 
+        def backprop_cancel(fut):
+            if fut.cancelled():
+                self.cancel()
+
         self.add_done_callback(on_done_recover, executor=executor)
+        f.add_done_callback(backprop_cancel)
         return f
 
     def map(self, fun_res, *, executor=None):
@@ -81,12 +84,8 @@ class FutureBaseExt(FutureBase):
             fun_res: function that accepts original result and returns new value.
             executor: Executor to use when performing call to function (default - Synchronous).
         """
-        return self._map(self, fun_res, executor=executor)
-
-    @classmethod
-    def _map(cls, self, fun_res, *, executor=None):
         assert callable(fun_res), "Future.map expects callable"
-        f = cls(clb_executor=self._executor)
+        f = self._new()
 
         def on_done_map(fut):
             if fut.cancelled():
@@ -113,20 +112,17 @@ class FutureBaseExt(FutureBase):
             completion of first one (or Future instance directly).
             executor: Executor to use when performing call to function (default - Synchronous).
         """
-        return self._then(self, future_fun, executor=executor)
-
-    @classmethod
-    def _then(cls, self, future_fun, *, executor=None):
         assert callable(future_fun), "Future.then expects callable"
 
-        f = cls(clb_executor=self._executor)
+        f = self._new()
 
         def on_done_start_next(fut):
             if fut.cancelled():
                 f.cancel()
             elif fut.exception() is None:
                 try:
-                    f2 = future_fun if isinstance(future_fun, FutureBase) else future_fun()
+                    f2_raw = future_fun if isinstance(future_fun, FutureBase) else future_fun()
+                    f2 = self._convert(f2_raw)
                     f2.add_done_callback(f.set_from)
                 except Exception as ex:
                     f.set_exception(ex)
@@ -151,20 +147,17 @@ class FutureBaseExt(FutureBase):
             (or Future instance directly).
             executor: Executor to use when performing call to function (default - Synchronous).
         """
-        return self._fallback(self, future_fun, executor=executor)
-
-    @classmethod
-    def _fallback(cls, self, future_fun, *, executor=None):
         assert callable(future_fun), "Future.fallback expects callable"
 
-        f = cls(clb_executor=self._executor)
+        f = self._new()
 
         def on_done_start_fallback(fut):
             if fut.cancelled():
                 f.cancel()
             elif fut.exception() is not None:
                 try:
-                    f2 = future_fun if isinstance(future_fun, FutureBase) else future_fun()
+                    f2_raw = future_fun if isinstance(future_fun, FutureBase) else future_fun()
+                    f2 = self._convert(f2_raw)
                     f2.add_done_callback(f.set_from)
                 except Exception as ex:
                     f.set_exception(ex)
@@ -192,7 +185,9 @@ class FutureBaseExt(FutureBase):
         if not futures:
             return cls.successful([], clb_executor=clb_executor)
 
-        f = cls(clb_executor=clb_executor)
+        futures = list(map(cls._convert, futures))
+        f = cls._new(clb_executor=clb_executor)
+
         lock = Lock()
         results = [None] * len(futures)
         left = len(futures)
@@ -234,7 +229,9 @@ class FutureBaseExt(FutureBase):
         if not futures:
             raise TypeError("Future.first() got empty sequence")
 
-        f = cls(clb_executor=clb_executor)
+        futures = list(map(cls._convert, futures))
+        f = cls._new(clb_executor=clb_executor)
+
         for fi in futures:
             fi.add_done_callback(f.try_set_from)
 
@@ -260,7 +257,9 @@ class FutureBaseExt(FutureBase):
         if not futures:
             raise TypeError("Future.first_successful() got empty sequence")
 
-        f = cls(clb_executor=clb_executor)
+        futures = list(map(cls._convert, futures))
+        f = cls._new(clb_executor=clb_executor)
+
         lock = Lock()
         left = len(futures)
 
@@ -300,3 +299,23 @@ class FutureBaseExt(FutureBase):
         return cls \
             .all(futures, clb_executor=clb_executor) \
             .map(lambda results: functools.reduce(fun, results, initial), executor=executor)
+
+    @classmethod
+    def _new(cls, other=None, *, clb_executor=None):
+        executor = clb_executor or (other._executor if other else None)
+        return cls(clb_executor=executor)
+
+    @classmethod
+    def _convert(cls, future):
+        """Override this method in leaf future classes to enable
+        compatibility between different Future implementations.
+        """
+
+        if not isinstance(future, cls):
+            raise TypeError("{} is not compatible with {}"
+            .format(_typename(cls), _typename(type(future))))
+        return future
+
+
+def _typename(cls):
+    return cls.__module__ + '.' + cls.__name__
