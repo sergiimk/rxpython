@@ -46,8 +46,8 @@ class Future(FutureBaseExt):
 
     def result(self, *, timeout=None):
         """Return the result this future represents.
-        If the future has not yet been completed this method with block for
-        for up to timeout seconds. If timeout is not specified it will block
+        If the future has not yet been completed this method blocks for
+        up to timeout seconds. If timeout is not specified it will block
         for unlimited time.
 
         If the future has been cancelled, raises CancelledError.  If the
@@ -63,8 +63,8 @@ class Future(FutureBaseExt):
 
     def exception(self, *, timeout=None):
         """Return the exception that was set on this future.
-        If the future has not yet been completed this method with block for
-        for up to timeout seconds. If timeout is not specified it will block
+        If the future has not yet been completed this method blocks for
+        up to timeout seconds. If timeout is not specified it will block
         for unlimited time.
 
         If the future has been cancelled, raises CancelledError.

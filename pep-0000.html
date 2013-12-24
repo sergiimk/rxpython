@@ -41,7 +41,7 @@ to templates.  DO NOT USE THIS HTML FILE AS YOUR TEMPLATE!
 </ul>
 </li>
 <li><a class="reference internal" href="#specification" id="id4">Specification</a><ul>
-<li><a class="reference internal" href="#future-type-hierarcy" id="id5">Future type hierarcy</a></li>
+<li><a class="reference internal" href="#future-type-hierarchy" id="id5">Future type hierarchy</a></li>
 <li><a class="reference internal" href="#futurebase-interface" id="id6">FutureBase interface</a></li>
 <li><a class="reference internal" href="#futurebaseext-interface" id="id7">FutureBaseExt interface</a></li>
 <li><a class="reference internal" href="#cooperative-future-interface" id="id8">cooperative.Future interface</a></li>
@@ -71,7 +71,7 @@ to templates.  DO NOT USE THIS HTML FILE AS YOUR TEMPLATE!
 <p>This is a proposal for unification of Future classes of <tt class="docutils literal">concurrent.futures</tt> and <tt class="docutils literal">asyncio</tt> packages which currently have similar interfaces but are completely unrelated types.</p>
 <p>This proposal includes:</p>
 <ul class="simple">
-<li>implementing Future class hierarchy with two leaf classes for <tt class="docutils literal">coopeperative</tt> and <tt class="docutils literal">multithreaded</tt> concurrency scenarios</li>
+<li>implementing Future class hierarchy with two leaf classes for <tt class="docutils literal">cooperative</tt> and <tt class="docutils literal">multithreaded</tt> concurrency scenarios</li>
 <li>making <tt class="docutils literal">asyncio.Future</tt> a concrete implementation of cooperative concurrency future</li>
 <li>providing common set of futures composition methods</li>
 <li>unifying callback scheduling mechanism</li>
@@ -80,12 +80,12 @@ to templates.  DO NOT USE THIS HTML FILE AS YOUR TEMPLATE!
 </div>
 <div class="section" id="motivation">
 <h1><a class="toc-backref" href="#id2">Motivation</a></h1>
-<p><tt class="docutils literal">Future</tt> is an abstraction for representing result of asynchronous operation. It is idependent of the specific way asynchronous operation is performed, wheter it is by means of multithreading or using coroutine-based cooperative concurrency.</p>
+<p><tt class="docutils literal">Future</tt> is an abstraction for representing result of asynchronous operation. It is independent of the specific way asynchronous operation is performed, whether it is by means of multithreading or using coroutine-based cooperative concurrency.</p>
 <p>Currently standard Python library has two <tt class="docutils literal">Future</tt> types for cooperative and multithreaded concurrency: <tt class="docutils literal">concurrent.futures.Future</tt> and <tt class="docutils literal">asyncio.Future</tt> respectively. These types have similar interfaces, but they are completely unrelated.</p>
 <p>As a consequence:</p>
 <ul class="simple">
 <li>It is hard to reason about interoperability of code with different concurrency models.</li>
-<li>Implementing computations on futures in concurrency-agnostic way is highly error-prone as implmentation needs to rely soley on callbacks and duck-typing.</li>
+<li>Implementing computations on futures in concurrency-agnostic way is highly error-prone as implementation needs to rely soley on callbacks and duck-typing.</li>
 <li>Implementations have different error handling strategies.</li>
 <li>Composition methods such as <tt class="docutils literal">concurrent.futures.wait</tt> and <tt class="docutils literal">asyncio.wait</tt> are duplicated for different types of futures.</li>
 <li>Cooperative concurrency <tt class="docutils literal">Future</tt> is tightly coupled with <tt class="docutils literal">asyncio</tt> package.</li>
@@ -100,7 +100,7 @@ to templates.  DO NOT USE THIS HTML FILE AS YOUR TEMPLATE!
 <li>Defining <tt class="docutils literal">concurrent.futures.multithreaded.Future</tt> class which ensures thread-safety of core <tt class="docutils literal">Future</tt> state and adds blocking operations.</li>
 <li>Implementing common unhandled error policy and callback scheduling mechanism.</li>
 <li>Subclassing <tt class="docutils literal">asyncio.Future</tt> from <tt class="docutils literal">cooperative.Future</tt> while adding only methods specific to <tt class="docutils literal">yield from</tt>.</li>
-<li>Implementing <tt class="docutils literal">concurrent.futures.Future</tt> in terms of <tt class="docutils literal">concurrent.futures.multithreaded.Future</tt> for backward-compatibility, while deprecating its use (espesially discouraging use of <tt class="docutils literal">running()</tt> and <tt class="docutils literal">set_running_or_notify_cancel()</tt> methods as posing to much restrictions on scheduler implementations).</li>
+<li>Implementing <tt class="docutils literal">concurrent.futures.Future</tt> in terms of <tt class="docutils literal">concurrent.futures.multithreaded.Future</tt> for backward-compatibility, while deprecating its use (especially discouraging use of <tt class="docutils literal">running()</tt> and <tt class="docutils literal">set_running_or_notify_cancel()</tt> methods as posing to much restrictions on scheduler implementations).</li>
 <li>Implementing common set of <tt class="docutils literal">Future</tt> composition methods (such as <tt class="docutils literal">all()</tt>, <tt class="docutils literal">first()</tt>, <tt class="docutils literal">first_sucessful()</tt> etc.).</li>
 </ul>
 </div>
@@ -109,12 +109,11 @@ to templates.  DO NOT USE THIS HTML FILE AS YOUR TEMPLATE!
 <h1><a class="toc-backref" href="#id4">Specification</a></h1>
 <p>Proposed package defines following abstractions:</p>
 <ul class="simple">
-<li><tt class="docutils literal">Future</tt> - represents result of async operation which is
-expected to be completed by some async system.</li>
+<li><tt class="docutils literal">Future</tt> - represents result of async operation, which is expected to be completed by some async system.</li>
 <li><tt class="docutils literal">Executor</tt> - a callable object used for scheduling callbacks. For example in cooperative concurrency scenario this can be <tt class="docutils literal">event_loop.call_soon()</tt> method, and for multithreaded case it can be either <tt class="docutils literal">thread pool</tt> for scheduling callbacks on different thread), or <tt class="docutils literal">Synchronous</tt> scheduler for running callback in same context as processing (if acceptable).</li>
 </ul>
-<div class="section" id="future-type-hierarcy">
-<h2><a class="toc-backref" href="#id5">Future type hierarcy</a></h2>
+<div class="section" id="future-type-hierarchy">
+<h2><a class="toc-backref" href="#id5">Future type hierarchy</a></h2>
 <p><tt class="docutils literal">Future</tt> type hierarchy in package <tt class="docutils literal">concurrent.futures</tt> consists of:</p>
 <ul class="simple">
 <li><tt class="docutils literal">FutureBase</tt> class, implementing core <tt class="docutils literal">Future</tt> state handling, as well as callback maintenance and invocation.</li>
@@ -264,27 +263,27 @@ compatibility between different Future implementations.</p>
 </div>
 <div class="section" id="cooperative-future-interface">
 <h2><a class="toc-backref" href="#id8">cooperative.Future interface</a></h2>
-<p><tt class="docutils literal">cooperative.Future</tt> inherits <tt class="docutils literal">FutureBaseExt</tt> and does not have any additional operations. Its only pupose is to separate concurrent and multithreaded branches of hierarchy.</p>
+<p><tt class="docutils literal">cooperative.Future</tt> inherits <tt class="docutils literal">FutureBaseExt</tt> and does not have any additional operations. Its only purpose is to separate concurrent and multithreaded branches of hierarchy.</p>
 </div>
 <div class="section" id="multithreaded-future-interface">
 <h2><a class="toc-backref" href="#id9">multithreaded.Future interface</a></h2>
 <p><tt class="docutils literal">multithreaded.Future</tt> adds thread-safety and blocking operations to <tt class="docutils literal">FutureBase</tt> methods.</p>
 <p><tt class="docutils literal"><span class="pre">result(*,</span> timeout=None)</tt></p>
 <blockquote>
-<p>Return the result this future represents. If the future has not yet been completed this method with block for for up to timeout seconds. If timeout is not specified it will block for unlimited time.</p>
+<p>Return the result this future represents. If the future has not yet been completed this method blocks for up to timeout seconds. If timeout is not specified it will block for unlimited time.</p>
 <p>If the future has been cancelled, raises CancelledError. If the future does not complete in specified time frame, raises TimeoutError. If the future is done and has an exception set, this exception is raised.</p>
 </blockquote>
 <p><tt class="docutils literal"><span class="pre">exception(*,</span> timeout=None)</tt></p>
 <blockquote>
-<p>Return the exception that was set on this future. If the future has not yet been completed this method with block for for up to timeout seconds. If timeout is not specified it will block for unlimited time.</p>
+<p>Return the exception that was set on this future. If the future has not yet been completed this method blocks for up to timeout seconds. If timeout is not specified it will block for unlimited time.</p>
 <p>If the future has been cancelled, raises CancelledError. If the future does not complete in specified time frame, raises TimeoutError.</p>
 </blockquote>
 </div>
 <div class="section" id="executors">
 <h2><a class="toc-backref" href="#id10">Executors</a></h2>
-<p><tt class="docutils literal">Future</tt> API allows two ways of specifying execution context for callbacls. First is by setting default callback executor on <tt class="docutils literal">Future</tt> creation. Second is by specifying it on per-callback basis when registering the callback.</p>
+<p><tt class="docutils literal">Future</tt> API allows two ways of specifying execution context for callbacks. First is by setting default callback executor on <tt class="docutils literal">Future</tt> creation. Second is by specifying it on per-callback basis when registering the callback.</p>
 <p>Controlling default callback context may be necessary for some services. For example if a service implements HTTP request multiplexing in dedicated thread, it's dangerous to run user's callbacks synchronously, because they may block or run for considerably long time. Such behavior would block the whole HTTP request processing thread. Such services can override default callback executor and set it to, for example, to <tt class="docutils literal">ThreadPoolExecutor</tt> when returning future to client. This way every callback of this future will run in <tt class="docutils literal">ThreadPool</tt> thread unless user specifies different executor explicitly.</p>
-<p><tt class="docutils literal">Executor</tt> is a callable object which receives function to execute:</p>
+<p><tt class="docutils literal">Executor</tt> is a callable object that receives function to execute:</p>
 <p><tt class="docutils literal">__call__(fn, *args, **kwargs)</tt></p>
 <blockquote>
 Schedules function for execution.</blockquote>
@@ -292,8 +291,8 @@ Schedules function for execution.</blockquote>
 </div>
 <div class="section" id="unhandled-errors-policy">
 <h2><a class="toc-backref" href="#id11">Unhandled errors policy</a></h2>
-<p>Errors in async operations should not go unnoticed, that's why proposed package expects that all <tt class="docutils literal">Future</tt> failures will be handled explicitly by callbacks, by getting <tt class="docutils literal">result</tt> or <tt class="docutils literal">exception</tt>, or by use of composition methods. Unhandled error is detected when <tt class="docutils literal">Future</tt> object is about to be deleted by GC and none of the above methods did not process the exception. Unhandled error may also be result of uncaught exception in the callback itself.</p>
-<p>To avoid exceptions being lost package defines default callback for unhandled failures which logs errors to <tt class="docutils literal">logging.error</tt> by default. You can override this behavior by setting <tt class="docutils literal">config.Default.UNHANDLED_FAILURE_CALLBACK</tt> field on application startup.</p>
+<p>Errors in async operations should not go unnoticed, that's why proposed package expects that all <tt class="docutils literal">Future</tt> failures will be handled explicitly by callbacks, by getting <tt class="docutils literal">result</tt> or <tt class="docutils literal">exception</tt>, or by use of composition methods. Unhandled error is detected when <tt class="docutils literal">Future</tt> object is about to be deleted by GC, and none of the above methods were used to detect the exception. Unhandled error may also be result of uncaught exception in the callback itself.</p>
+<p>To avoid exceptions being lost package defines default callback for unhandled failures that logs errors to <tt class="docutils literal">logging.error</tt> by default. You can override this behavior by setting <tt class="docutils literal">config.Default.UNHANDLED_FAILURE_CALLBACK</tt> field on application startup.</p>
 <p>It is possible to ignore errors explicitly using <tt class="docutils literal">f.recover(None)</tt>.</p>
 </div>
 <div class="section" id="compatibility-between-different-types-of-futures">

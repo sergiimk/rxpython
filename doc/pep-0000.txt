@@ -18,7 +18,7 @@ This is a proposal for unification of Future classes of ``concurrent.futures`` a
 
 This proposal includes:
 
-- implementing Future class hierarchy with two leaf classes for ``coopeperative`` and ``multithreaded`` concurrency scenarios
+- implementing Future class hierarchy with two leaf classes for ``cooperative`` and ``multithreaded`` concurrency scenarios
 
 - making ``asyncio.Future`` a concrete implementation of cooperative concurrency future
 
@@ -32,7 +32,7 @@ This proposal includes:
 Motivation
 ==========
 
-``Future`` is an abstraction for representing result of asynchronous operation. It is idependent of the specific way asynchronous operation is performed, wheter it is by means of multithreading or using coroutine-based cooperative concurrency.
+``Future`` is an abstraction for representing result of asynchronous operation. It is independent of the specific way asynchronous operation is performed, whether it is by means of multithreading or using coroutine-based cooperative concurrency.
 
 Currently standard Python library has two ``Future`` types for cooperative and multithreaded concurrency: ``concurrent.futures.Future`` and ``asyncio.Future`` respectively. These types have similar interfaces, but they are completely unrelated.
 
@@ -40,7 +40,7 @@ As a consequence:
 
 - It is hard to reason about interoperability of code with different concurrency models.
 
-- Implementing computations on futures in concurrency-agnostic way is highly error-prone as implmentation needs to rely soley on callbacks and duck-typing.
+- Implementing computations on futures in concurrency-agnostic way is highly error-prone as implementation needs to rely soley on callbacks and duck-typing.
 
 - Implementations have different error handling strategies.
 
@@ -66,7 +66,7 @@ Proposed solution includes:
 
 - Subclassing ``asyncio.Future`` from ``cooperative.Future`` while adding only methods specific to ``yield from``.
 
-- Implementing ``concurrent.futures.Future`` in terms of ``concurrent.futures.multithreaded.Future`` for backward-compatibility, while deprecating its use (espesially discouraging use of ``running()`` and ``set_running_or_notify_cancel()`` methods as posing to much restrictions on scheduler implementations).
+- Implementing ``concurrent.futures.Future`` in terms of ``concurrent.futures.multithreaded.Future`` for backward-compatibility, while deprecating its use (especially discouraging use of ``running()`` and ``set_running_or_notify_cancel()`` methods as posing to much restrictions on scheduler implementations).
 
 - Implementing common set of ``Future`` composition methods (such as ``all()``, ``first()``, ``first_sucessful()`` etc.).
 
@@ -77,14 +77,13 @@ Specification
 
 Proposed package defines following abstractions:
 
-- ``Future`` - represents result of async operation which is 
-  expected to be completed by some async system.
+- ``Future`` - represents result of async operation, which is expected to be completed by some async system.
 
 - ``Executor`` - a callable object used for scheduling callbacks. For example in cooperative concurrency scenario this can be ``event_loop.call_soon()`` method, and for multithreaded case it can be either ``thread pool`` for scheduling callbacks on different thread), or ``Synchronous`` scheduler for running callback in same context as processing (if acceptable).
 
 
-Future type hierarcy
---------------------
+Future type hierarchy
+---------------------
 
 ``Future`` type hierarchy in package ``concurrent.futures`` consists of:
 
@@ -271,7 +270,7 @@ means for combining multiple different futures together.
 cooperative.Future interface
 ------------------------------
 
-``cooperative.Future`` inherits ``FutureBaseExt`` and does not have any additional operations. Its only pupose is to separate concurrent and multithreaded branches of hierarchy.
+``cooperative.Future`` inherits ``FutureBaseExt`` and does not have any additional operations. Its only purpose is to separate concurrent and multithreaded branches of hierarchy.
 
 
 multithreaded.Future interface
@@ -281,13 +280,13 @@ multithreaded.Future interface
 
 ``result(*, timeout=None)``
 
-	Return the result this future represents. If the future has not yet been completed this method with block for for up to timeout seconds. If timeout is not specified it will block for unlimited time.
+	Return the result this future represents. If the future has not yet been completed this method blocks for up to timeout seconds. If timeout is not specified it will block for unlimited time.
 
 	If the future has been cancelled, raises CancelledError. If the future does not complete in specified time frame, raises TimeoutError. If the future is done and has an exception set, this exception is raised.
 
 ``exception(*, timeout=None)``
 
-	Return the exception that was set on this future. If the future has not yet been completed this method with block for for up to timeout seconds. If timeout is not specified it will block for unlimited time.
+	Return the exception that was set on this future. If the future has not yet been completed this method blocks for up to timeout seconds. If timeout is not specified it will block for unlimited time.
 
 	If the future has been cancelled, raises CancelledError. If the future does not complete in specified time frame, raises TimeoutError.
 
@@ -295,11 +294,11 @@ multithreaded.Future interface
 Executors
 ---------
 
-``Future`` API allows two ways of specifying execution context for callbacls. First is by setting default callback executor on ``Future`` creation. Second is by specifying it on per-callback basis when registering the callback.
+``Future`` API allows two ways of specifying execution context for callbacks. First is by setting default callback executor on ``Future`` creation. Second is by specifying it on per-callback basis when registering the callback.
 
 Controlling default callback context may be necessary for some services. For example if a service implements HTTP request multiplexing in dedicated thread, it's dangerous to run user's callbacks synchronously, because they may block or run for considerably long time. Such behavior would block the whole HTTP request processing thread. Such services can override default callback executor and set it to, for example, to ``ThreadPoolExecutor`` when returning future to client. This way every callback of this future will run in ``ThreadPool`` thread unless user specifies different executor explicitly.
 
-``Executor`` is a callable object which receives function to execute:
+``Executor`` is a callable object that receives function to execute:
 
 ``__call__(fn, *args, **kwargs)``
 
@@ -311,9 +310,9 @@ By default all futures use ``SynchronousExecutor`` for all callbacks. This can b
 Unhandled errors policy
 -----------------------
 
-Errors in async operations should not go unnoticed, that's why proposed package expects that all ``Future`` failures will be handled explicitly by callbacks, by getting ``result`` or ``exception``, or by use of composition methods. Unhandled error is detected when ``Future`` object is about to be deleted by GC and none of the above methods did not process the exception. Unhandled error may also be result of uncaught exception in the callback itself.
+Errors in async operations should not go unnoticed, that's why proposed package expects that all ``Future`` failures will be handled explicitly by callbacks, by getting ``result`` or ``exception``, or by use of composition methods. Unhandled error is detected when ``Future`` object is about to be deleted by GC, and none of the above methods were used to detect the exception. Unhandled error may also be result of uncaught exception in the callback itself.
 
-To avoid exceptions being lost package defines default callback for unhandled failures which logs errors to ``logging.error`` by default. You can override this behavior by setting ``config.Default.UNHANDLED_FAILURE_CALLBACK`` field on application startup.
+To avoid exceptions being lost package defines default callback for unhandled failures that logs errors to ``logging.error`` by default. You can override this behavior by setting ``config.Default.UNHANDLED_FAILURE_CALLBACK`` field on application startup.
 
 It is possible to ignore errors explicitly using ``f.recover(None)``.
 
