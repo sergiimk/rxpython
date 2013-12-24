@@ -1,10 +1,9 @@
-from concurrent.futures.cooperative.future_core import _PENDING, _CANCELLED
-from concurrent.futures.cooperative.future_callbacks import FutureCallbacks
-from concurrent.futures.cooperative.future_extensions import FutureBaseExtensions
+from concurrent.futures.cooperative.future_base import _PENDING, _CANCELLED
+from concurrent.futures.cooperative.future_extensions import FutureBaseExt
 from threading import Condition
 
 
-class Future(FutureCallbacks, FutureBaseExtensions):
+class Future(FutureBaseExt):
     def __init__(self, clb_executor=None):
         """Initialize the future.
 
@@ -12,33 +11,36 @@ class Future(FutureCallbacks, FutureBaseExtensions):
         executor object used by the future for running callbacks.
         If it's not provided, the future uses the default executor.
         """
-        FutureCallbacks.__init__(self, clb_executor)
+        super().__init__(clb_executor)
         self._mutex = Condition()
 
-    def _try_set_result(self, state, result, exception):
+    def add_done_callback(self, fun_res, executor=None):
+        """Add a callback to be run when the future becomes done.
+
+        The callback is called with a single argument - the future object. If
+        the future is already done when this is called, the callback is
+        scheduled with call_soon.
+        """
         with self._mutex:
-            return FutureCallbacks._try_set_result(self, state, result, exception)
+            super().add_done_callback(fun_res, executor)
+
+    def remove_done_callback(self, fn):
+        """Remove all instances of a callback from the "call when done" list.
+
+        Returns the number of callbacks removed.
+        """
+        with self._mutex:
+            return super().remove_done_callback(fn)
 
     def done(self):
         """Returns True if future is completed or cancelled."""
         with self._mutex:
-            return FutureCallbacks.done(self)
+            return super().done()
 
     def cancelled(self):
         """Returns True if the future cancellation was requested."""
         with self._mutex:
-            return FutureCallbacks.cancelled(self)
-
-    def cancel(self):
-        """Requests cancellation of future.
-
-        Returns:
-            True if future was not yet completed or cancelled.
-        """
-        with self._mutex:
-            if self._state != _PENDING:
-                return False
-            return FutureCallbacks._try_set_result(self, _CANCELLED, None, None)
+            return super().cancelled()
 
     def result(self, timeout=None):
         """Return the result this future represents.
@@ -55,7 +57,7 @@ class Future(FutureCallbacks, FutureBaseExtensions):
                 self._mutex.wait(timeout)
             if self._state == _PENDING:
                 raise TimeoutError("Future waiting timeout reached")
-            return FutureCallbacks.result(self)
+            return super().result()
 
     def exception(self, timeout=None):
         """Return the exception that was set on this future.
@@ -72,27 +74,23 @@ class Future(FutureCallbacks, FutureBaseExtensions):
                 self._mutex.wait(timeout)
             if self._state == _PENDING:
                 raise TimeoutError("Future waiting timeout reached")
-            return FutureCallbacks.exception(self)
+            return super().exception()
 
-    def add_done_callback(self, fun_res, executor=None):
-        """Add a callback to be run when the future becomes done.
+    def cancel(self):
+        """Requests cancellation of future.
 
-        The callback is called with a single argument - the future object. If
-        the future is already done when this is called, the callback is
-        scheduled with call_soon.
+        Returns:
+            True if future was not yet completed or cancelled.
         """
         with self._mutex:
-            FutureCallbacks.add_done_callback(self, fun_res, executor)
+            if self._state != _PENDING:
+                return False
+            return super()._try_set_state(_CANCELLED, None, None)
 
-    def remove_done_callback(self, fn):
-        """Remove all instances of a callback from the "call when done" list.
-
-        Returns the number of callbacks removed.
-        """
+    def _try_set_state(self, state, result, exception):
         with self._mutex:
-            return FutureCallbacks.remove_done_callback(self, fn)
+            return super()._try_set_state(state, result, exception)
 
-    #override
     def _on_result_set(self):
-        FutureCallbacks._on_result_set(self)
+        super()._on_result_set()
         self._mutex.notify_all()

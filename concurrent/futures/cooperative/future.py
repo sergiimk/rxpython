@@ -1,6 +1,6 @@
-from .future_callbacks import FutureCallbacks
-from .future_extensions import FutureBaseExtensions
+from .future_extensions import FutureBaseExt
 
 
-class Future(FutureCallbacks, FutureBaseExtensions):
+class Future(FutureBaseExt):
+    """Future to be used in cooperative multitasking concurrency environment."""
     pass

@@ -1,10 +1,9 @@
 from .future_base import FutureBase
 from threading import Lock
-import abc
 import functools
 
 
-class FutureBaseExtensions(FutureBase, metaclass=abc.ABCMeta):
+class FutureBaseExt(FutureBase):
     """ABC for Future combination functions."""
 
     #todo: completed optimization
