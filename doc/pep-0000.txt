@@ -26,7 +26,7 @@ This proposal includes:
 
 - unifying callback scheduling mechanism
 
-- unifying error handling strategies
+- unifying error handling strategy
 
 ==========
 Motivation
@@ -40,11 +40,11 @@ As a consequence:
 
 - It is hard to reason about interoperability of code with different concurrency models.
 
-- Implementing concurrency-agnostic functionality operating on futures is highly error-prone sice implmentation needs to rely soley on callbacks and duck-typing.
+- Implementing computations on futures in concurrency-agnostic way is highly error-prone as implmentation needs to rely soley on callbacks and duck-typing.
 
 - Implementations have different error handling strategies.
 
-- Composition methods such as ``concurrent.futures.wait`` and ``asyncio.wait`` are duplicated for different types of futures, although they can be implemented in concurrency-independent way.
+- Composition methods such as ``concurrent.futures.wait`` and ``asyncio.wait`` are duplicated for different types of futures.
 
 - Cooperative concurrency ``Future`` is tightly coupled with ``asyncio`` package.
 
@@ -58,7 +58,7 @@ Proposed solution includes:
 
 - Bringing cooperative and multithreaded futures under single type hierarchy.
 
-- Defining ``concurrent.futures.cooperative.Future`` class for cooperative concurrency scenario, preserving interface of current ``asyncio.Future`` (purely call-based, without any blocking methods).
+- Defining ``concurrent.futures.cooperative.Future`` class for cooperative concurrency scenario, preserving interface of current ``asyncio.Future`` (purely callback-based, without any blocking methods).
 
 - Defining ``concurrent.futures.multithreaded.Future`` class which ensures thread-safety of core ``Future`` state and adds blocking operations.
 
@@ -321,9 +321,9 @@ It is possible to ignore errors explicitly using ``f.recover(None)``.
 Compatibility between different types of futures
 ------------------------------------------------
 
-For applications which may use both cooperative and multithreaded concurrency models at the same time there's a high risk of mixing different future types in composition methods. If this goes unnoticed it may cause race conditions to occur.
+For applications which may use both cooperative and multithreaded concurrency models at the same time there's a high risk of mixing different future types in composition methods. If this goes unnoticed it may result in race conditions.
 
-To prevent this, all composition methods of ``FutureBaseExt`` perform type checking, raising ``TypeError`` when class for which composition method was called does not correspond to class of ``Future`` instances. This check is performed by ``FutureBaseExt.convert(future)`` method.
+To prevent this, all composition methods of ``FutureBaseExt`` perform type checking, raising ``TypeError`` when class which was used for calling composition method does not match with class of ``Future`` instances. This check is performed by ``FutureBaseExt.convert(future)`` method.
 
 However this restriction is too strict. For example it is safe to use callbacks of ``cooperative.Future`` in composition methods of ``multithreaded.Future``. Also ``multithreaded.Future`` can be easily wrapped into ``asyncio.Future`` by using ``loop.call_soon_threadsafe()`` method. To allow such compatibility and conversions ``multithreaded.Future`` and ``asyncio.Future`` override ``convert(future)`` method.
 
@@ -335,7 +335,7 @@ Resulting conversions are:
 
 - ``asyncio.Future`` converts subclasses of ``multithreaded.Future`` via wrapping
 
-As a result, this compatibility mechanism allows mixing futures of different types and nature safely in composition methods.
+As a result, this compatibility mechanism allows mixing futures of different types and nature in composition methods safely.
 
 
 ==============
