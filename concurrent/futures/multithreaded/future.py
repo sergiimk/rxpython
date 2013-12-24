@@ -1,6 +1,6 @@
-from concurrent.futures.sync.future_core import _PENDING, _CANCELLED
-from concurrent.futures.sync.future_callbacks import FutureBase
-from concurrent.futures.sync.future_extensions import FutureExtensions
+from concurrent.futures.cooperative.future_core import _PENDING, _CANCELLED
+from concurrent.futures.cooperative.future_callbacks import FutureBase
+from concurrent.futures.cooperative.future_extensions import FutureExtensions
 from threading import Condition
 
 

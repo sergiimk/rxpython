@@ -45,7 +45,7 @@ Process #1..n:
 
 __author__ = 'Brian Quinlan (brian@sweetapp.com)'
 
-from concurrent.futures.threaded import Future
+from concurrent.futures.multithreaded import Future
 from concurrent.futures.old.executor import Executor
 
 import atexit
@@ -431,7 +431,7 @@ class ProcessPoolExecutor(Executor):
             if wait:
                 self._queue_management_thread.join()
                 # To reduce the risk of opening too many files, remove references to
-            # objects that use file descriptors.
+                # objects that use file descriptors.
         self._queue_management_thread = None
         self._call_queue = None
         self._result_queue = None

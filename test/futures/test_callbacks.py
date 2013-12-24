@@ -1,5 +1,5 @@
 from .test_base import FutureTestBase
-from concurrent.futures.sync import *
+from concurrent.futures.cooperative import *
 from concurrent.futures.config import Default
 
 
@@ -83,4 +83,5 @@ class FutureCallbacksTest(FutureTestBase):
 
 if __name__ == '__main__':
     import unittest
+
     unittest.main()

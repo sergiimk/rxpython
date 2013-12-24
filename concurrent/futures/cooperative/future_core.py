@@ -30,7 +30,7 @@ class FutureCore(object):
             if size > 2:
                 res += '<{}, [{}, <{} more>, {}]>'.format(
                     self._state, self._callbacks[0],
-                    size-2, self._callbacks[-1])
+                    size - 2, self._callbacks[-1])
             else:
                 res += '<{}, {}>'.format(self._state, self._callbacks)
         else:

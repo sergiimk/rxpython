@@ -1,4 +1,4 @@
-from concurrent.futures.sync import *
+from concurrent.futures.cooperative import *
 from .test_base import FutureTestBase
 
 

@@ -23,7 +23,7 @@ class Default(object):
     @staticmethod
     def get_callback_executor():
         if not Default.CALLBACK_EXECUTOR:
-            from .sync.synchronous_executor import Synchronous
+            from .cooperative.synchronous_executor import Synchronous
 
             Default.CALLBACK_EXECUTOR = Synchronous
         return Default.CALLBACK_EXECUTOR

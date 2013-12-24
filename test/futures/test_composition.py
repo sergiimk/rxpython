@@ -1,5 +1,5 @@
 from .test_base import FutureTestBase
-from concurrent.futures.threaded import *
+from concurrent.futures.multithreaded import *
 
 
 class FutureCompositionTest(FutureTestBase):
