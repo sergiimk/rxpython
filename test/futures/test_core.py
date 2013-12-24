@@ -1,13 +1,14 @@
 from concurrent.futures.cooperative import *
 from .test_base import FutureTestBase
+import functools
 
 
 class FutureCoreTest(FutureTestBase):
     def test_repr(self):
         f = Future()
-        f.add_done_callback(self._raise, TypeError())
-        f.add_done_callback(self._raise, TypeError())
-        f.add_done_callback(self._raise, TypeError())
+        f.add_done_callback(functools.partial(self._raise, TypeError()))
+        f.add_done_callback(functools.partial(self._raise, TypeError()))
+        f.add_done_callback(functools.partial(self._raise, TypeError()))
         repr(f)
 
     def test_type_checks(self):

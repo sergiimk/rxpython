@@ -18,12 +18,12 @@ class FutureBase:
     _exception = None
     _ex_handler = None
 
-    def __init__(self, clb_executor=None):
+    def __init__(self, *, clb_executor=None):
         self._callbacks = []
         self._callbacks = []
         self._executor = clb_executor or Default.get_callback_executor()
 
-    def add_done_callback(self, fun_res, executor=None):
+    def add_done_callback(self, fun_res, *, executor=None):
         """Add a callback to be run when the future becomes done.
 
         The callback is called with a single argument - the future object. If
@@ -44,7 +44,7 @@ class FutureBase:
 
         Returns the number of callbacks removed.
         """
-        filtered_callbacks = [f for f in self._callbacks if f != fn]
+        filtered_callbacks = [(f, executor) for f, executor in self._callbacks if f != fn]
         removed_count = len(self._callbacks) - len(filtered_callbacks)
         if removed_count:
             self._callbacks[:] = filtered_callbacks

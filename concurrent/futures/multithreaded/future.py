@@ -4,17 +4,17 @@ from threading import Condition
 
 
 class Future(FutureBaseExt):
-    def __init__(self, clb_executor=None):
+    def __init__(self, *, clb_executor=None):
         """Initialize the future.
 
         The optional clb_executor argument allows to explicitly set the
         executor object used by the future for running callbacks.
         If it's not provided, the future uses the default executor.
         """
-        super().__init__(clb_executor)
+        super().__init__(clb_executor=clb_executor)
         self._mutex = Condition()
 
-    def add_done_callback(self, fun_res, executor=None):
+    def add_done_callback(self, fun_res, *, executor=None):
         """Add a callback to be run when the future becomes done.
 
         The callback is called with a single argument - the future object. If
@@ -22,7 +22,7 @@ class Future(FutureBaseExt):
         scheduled with call_soon.
         """
         with self._mutex:
-            super().add_done_callback(fun_res, executor)
+            super().add_done_callback(fun_res, executor=executor)
 
     def remove_done_callback(self, fn):
         """Remove all instances of a callback from the "call when done" list.
@@ -42,7 +42,7 @@ class Future(FutureBaseExt):
         with self._mutex:
             return super().cancelled()
 
-    def result(self, timeout=None):
+    def result(self, *, timeout=None):
         """Return the result this future represents.
         If the future has not yet been completed this method with block for
         for up to timeout seconds. If timeout is not specified it will block
@@ -59,7 +59,7 @@ class Future(FutureBaseExt):
                 raise TimeoutError("Future waiting timeout reached")
             return super().result()
 
-    def exception(self, timeout=None):
+    def exception(self, *, timeout=None):
         """Return the exception that was set on this future.
         If the future has not yet been completed this method with block for
         for up to timeout seconds. If timeout is not specified it will block

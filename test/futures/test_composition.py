@@ -88,7 +88,7 @@ class FutureCompositionTest(FutureTestBase):
 
         fauth = auth()
         frequest = fauth.then(lambda: request(5))
-        self.assertRaises(IOError, frequest.result, 10)
+        self.assertRaises(IOError, frequest.result, timeout=10)
 
     def test_then_second_failure(self):
         def auth():
@@ -99,7 +99,7 @@ class FutureCompositionTest(FutureTestBase):
 
         fauth = auth()
         frequest = fauth.then(lambda: request(5))
-        self.assertRaises(IOError, frequest.result, 10)
+        self.assertRaises(IOError, frequest.result, timeout=10)
 
     def test_then_fun_failure(self):
         def auth():
@@ -110,7 +110,7 @@ class FutureCompositionTest(FutureTestBase):
 
         fauth = auth()
         frequest = fauth.then(lambda: request(5))
-        self.assertRaises(AttributeError, frequest.result, 10)
+        self.assertRaises(AttributeError, frequest.result, timeout=10)
 
     def test_fallback(self):
         def connect_plain():

@@ -33,7 +33,7 @@ class Future(concurrent.futures.cooperative.Future):
 
     def __init__(self, *, loop=None):
         self._loop = loop or events.get_event_loop()
-        super().__init__(loop_as_executor(self._loop))
+        super().__init__(clb_executor=loop_as_executor(self._loop))
 
     def __iter__(self):
         if not self.done():

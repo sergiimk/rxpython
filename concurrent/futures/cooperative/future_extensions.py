@@ -8,33 +8,33 @@ class FutureBaseExt(FutureBase):
 
     #todo: completed optimization
     @classmethod
-    def successful(cls, result=None, clb_executor=None):
+    def successful(cls, result=None, *, clb_executor=None):
         """Returns successfully completed future.
 
         Args:
             result: value to complete future with.
             clb_executor: default Executor to use for running callbacks (default - Synchronous).
         """
-        f = cls(clb_executor)
+        f = cls(clb_executor=clb_executor)
         f.set_result(result)
         return f
 
     @classmethod
-    def failed(cls, exception, clb_executor=None):
+    def failed(cls, exception, *, clb_executor=None):
         """Returns failed future.
 
         Args:
             exception: Exception to set to future.
             clb_executor: default Executor to use for running callbacks (default - Synchronous).
         """
-        f = cls(clb_executor)
+        f = cls(clb_executor=clb_executor)
         f.set_exception(exception)
         return f
 
     @classmethod
     def completed(cls, fun, *args, clb_executor=None, **kwargs):
         """Returns successful or failed future set from provided function."""
-        f = cls(clb_executor)
+        f = cls(clb_executor=clb_executor)
         try:
             f.set_result(fun(*args, **kwargs))
         except Exception as ex:
@@ -47,7 +47,8 @@ class FutureBaseExt(FutureBase):
         except Exception as ex:
             self.set_exception(ex)
 
-    def recover(self, fun_ex, executor=None):
+    #TODO: type of other future?
+    def recover(self, fun_ex, *, executor=None):
         """Returns future that will contain result of original if it
         completes successfully, or set from result of provided function in
         case of failure.
@@ -61,7 +62,7 @@ class FutureBaseExt(FutureBase):
     @classmethod
     def _recover(cls, self, fun_ex, executor=None):
         assert callable(fun_ex), "Future.recover expects callable"
-        f = cls(self._executor)
+        f = cls(clb_executor=self._executor)
 
         def on_done_recover(fut):
             if fut.exception() is None:
@@ -72,7 +73,7 @@ class FutureBaseExt(FutureBase):
         self.add_done_callback(on_done_recover, executor=executor)
         return f
 
-    def map(self, fun_res, executor=None):
+    def map(self, fun_res, *, executor=None):
         """Returns future which will be set from result of applying provided function
         to original future value.
 
@@ -80,12 +81,12 @@ class FutureBaseExt(FutureBase):
             fun_res: function that accepts original result and returns new value.
             executor: Executor to use when performing call to function (default - Synchronous).
         """
-        return self._map(self, fun_res, executor)
+        return self._map(self, fun_res, executor=executor)
 
     @classmethod
-    def _map(cls, self, fun_res, executor=None):
+    def _map(cls, self, fun_res, *, executor=None):
         assert callable(fun_res), "Future.map expects callable"
-        f = cls(self._executor)
+        f = cls(clb_executor=self._executor)
 
         def on_done_map(fut):
             if fut.cancelled():
@@ -103,7 +104,7 @@ class FutureBaseExt(FutureBase):
         f.add_done_callback(backprop_cancel)
         return f
 
-    def then(self, future_fun, executor=None):
+    def then(self, future_fun, *, executor=None):
         """Returns future which represents two futures chained one after another.
         Failures are propagated from first future, from second future and from callback function.
 
@@ -112,13 +113,13 @@ class FutureBaseExt(FutureBase):
             completion of first one (or Future instance directly).
             executor: Executor to use when performing call to function (default - Synchronous).
         """
-        return self._then(self, future_fun, executor)
+        return self._then(self, future_fun, executor=executor)
 
     @classmethod
-    def _then(cls, self, future_fun, executor=None):
+    def _then(cls, self, future_fun, *, executor=None):
         assert callable(future_fun), "Future.then expects callable"
 
-        f = cls(self._executor)
+        f = cls(clb_executor=self._executor)
 
         def on_done_start_next(fut):
             if fut.cancelled():
@@ -140,7 +141,7 @@ class FutureBaseExt(FutureBase):
         f.add_done_callback(backprop_cancel)
         return f
 
-    def fallback(self, future_fun, executor=None):
+    def fallback(self, future_fun, *, executor=None):
         """Returns future that will contain result of original if it completes
         successfully, or will be set from future returned from provided
         function in case of failure.
@@ -150,13 +151,13 @@ class FutureBaseExt(FutureBase):
             (or Future instance directly).
             executor: Executor to use when performing call to function (default - Synchronous).
         """
-        return self._fallback(self, future_fun, executor)
+        return self._fallback(self, future_fun, executor=executor)
 
     @classmethod
-    def _fallback(cls, self, future_fun, executor=None):
+    def _fallback(cls, self, future_fun, *, executor=None):
         assert callable(future_fun), "Future.fallback expects callable"
 
-        f = cls(self._executor)
+        f = cls(clb_executor=self._executor)
 
         def on_done_start_fallback(fut):
             if fut.cancelled():
@@ -179,7 +180,7 @@ class FutureBaseExt(FutureBase):
         return f
 
     @classmethod
-    def all(cls, futures, clb_executor=None):
+    def all(cls, futures, *, clb_executor=None):
         """Transforms list of futures into one future that will contain list of results.
         In case of any failure future will be failed with first exception to occur.
 
@@ -189,9 +190,9 @@ class FutureBaseExt(FutureBase):
             callbacks (default - Synchronous).
         """
         if not futures:
-            return cls.successful([], clb_executor)
+            return cls.successful([], clb_executor=clb_executor)
 
-        f = cls(clb_executor)
+        f = cls(clb_executor=clb_executor)
         lock = Lock()
         results = [None] * len(futures)
         left = len(futures)
@@ -221,7 +222,7 @@ class FutureBaseExt(FutureBase):
         return f
 
     @classmethod
-    def first(cls, futures, clb_executor=None):
+    def first(cls, futures, *, clb_executor=None):
         """Returns future which will be set from result of first future to complete,
         both successfully or with failure.
 
@@ -233,7 +234,7 @@ class FutureBaseExt(FutureBase):
         if not futures:
             raise TypeError("Future.first() got empty sequence")
 
-        f = cls(clb_executor)
+        f = cls(clb_executor=clb_executor)
         for fi in futures:
             fi.add_done_callback(f.try_set_from)
 
@@ -246,7 +247,7 @@ class FutureBaseExt(FutureBase):
         return f
 
     @classmethod
-    def first_successful(cls, futures, clb_executor=None):
+    def first_successful(cls, futures, *, clb_executor=None):
         """Returns future which will be set from result of first future to
         complete successfully, last detected error will be set in case
         when all of the provided future fail.
@@ -259,7 +260,7 @@ class FutureBaseExt(FutureBase):
         if not futures:
             raise TypeError("Future.first_successful() got empty sequence")
 
-        f = cls(clb_executor)
+        f = cls(clb_executor=clb_executor)
         lock = Lock()
         left = len(futures)
 
@@ -285,7 +286,7 @@ class FutureBaseExt(FutureBase):
         return f
 
     @classmethod
-    def reduce(cls, futures, fun, initial, executor=None, clb_executor=None):
+    def reduce(cls, futures, fun, initial, *, executor=None, clb_executor=None):
         """Returns future which will be set with reduced result of all provided futures.
         In case of any failure future will be failed with first exception to occur.
 

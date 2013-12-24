@@ -49,7 +49,7 @@ class ThreadPoolExecutorTest(unittest.TestCase):
                 f = tpx1.submit(run)
                 f2 = f.map(clb, executor=tpx2)
 
-                f2.result(10)
+                f2.result(timeout=10)
                 self.assertNotEqual(thread_main, thread_body)
                 self.assertNotEqual(thread_main, thread_clb)
                 self.assertNotEqual(thread_body, thread_clb)
