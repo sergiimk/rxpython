@@ -10,6 +10,17 @@ class FutureCoreTest(FutureTestBase):
         f.add_done_callback(self._raise, TypeError())
         repr(f)
 
+    def test_type_checks(self):
+        import concurrent.futures.cooperative as coop
+        import concurrent.futures.multithreaded as mt
+        from concurrent.futures import FutureBase
+
+        fcoop = coop.Future()
+        fmt = mt.Future()
+
+        self.assertIsInstance(fcoop, FutureBase)
+        self.assertIsInstance(fmt, FutureBase)
+
     def test_get_result_when_succeeded(self):
         f = Future()
         self.assertFalse(f.done())

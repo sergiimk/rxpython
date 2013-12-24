@@ -1,10 +1,11 @@
-from .future_callbacks import FutureBase
+from .future_base import FutureBase
 from threading import Lock
+import abc
 import functools
 
 
-class FutureExtensions(object):
-    """Mixin class for Future combination functions."""
+class FutureBaseExtensions(FutureBase, metaclass=abc.ABCMeta):
+    """ABC for Future combination functions."""
 
     #todo: completed optimization
     @classmethod
@@ -41,6 +42,12 @@ class FutureExtensions(object):
             f.set_exception(ex)
         return f
 
+    def complete(self, fun, *args, **kwargs):
+        try:
+            self.set_result(fun(*args, **kwargs))
+        except Exception as ex:
+            self.set_exception(ex)
+
     def recover(self, fun_ex, executor=None):
         """Returns future that will contain result of original if it
         completes successfully, or set from result of provided function in
@@ -61,7 +68,7 @@ class FutureExtensions(object):
             if fut.exception() is None:
                 f.set_result(fut.result())
             else:
-                f._complete(fun_ex, fut.exception())
+                f.complete(fun_ex, fut.exception())
 
         self.add_done_callback(on_done_recover, executor=executor)
         return f
@@ -85,7 +92,7 @@ class FutureExtensions(object):
             if fut.cancelled():
                 f.cancel()
             elif fut.exception() is None:
-                f._complete(fun_res, fut.result())
+                f.complete(fun_res, fut.result())
             else:
                 f.set_exception(fut.exception())
 
@@ -120,7 +127,7 @@ class FutureExtensions(object):
             elif fut.exception() is None:
                 try:
                     f2 = future_fun if isinstance(future_fun, FutureBase) else future_fun()
-                    f2.add_done_callback(f._set_from)
+                    f2.add_done_callback(f.set_from)
                 except Exception as ex:
                     f.set_exception(ex)
             else:
@@ -158,11 +165,11 @@ class FutureExtensions(object):
             elif fut.exception() is not None:
                 try:
                     f2 = future_fun if isinstance(future_fun, FutureBase) else future_fun()
-                    f2.add_done_callback(f._set_from)
+                    f2.add_done_callback(f.set_from)
                 except Exception as ex:
-                    f._failure(ex)
+                    f.set_exception(ex)
             else:
-                f.set_resutl(fut.result())
+                f.set_result(fut.result())
 
         def backprop_cancel(fut):
             if fut.cancelled():
@@ -171,12 +178,6 @@ class FutureExtensions(object):
         self.add_done_callback(on_done_start_fallback, executor=executor)
         f.add_done_callback(backprop_cancel)
         return f
-
-    class comb_ctx(object):
-        def __init__(self):
-            self.lock = Lock()
-            self.results = None
-            self.left = 0
 
     @classmethod
     def all(cls, futures, clb_executor=None):
@@ -192,21 +193,22 @@ class FutureExtensions(object):
             return cls.successful([], clb_executor)
 
         f = cls(clb_executor)
-        ctx = FutureExtensions.comb_ctx()
-        ctx.results = [None] * len(futures)
-        ctx.left = len(futures)
+        lock = Lock()
+        results = [None] * len(futures)
+        left = len(futures)
 
         def done(i, fut):
+            nonlocal left
             if fut.cancelled():
                 f.cancel()
             if fut.exception() is not None:
                 f.set_exception(fut.exception())
             else:
-                with ctx.lock:
-                    ctx.results[i] = fut.result()
-                    ctx.left -= 1
-                    if not ctx.left:
-                        f.set_result(ctx.results)
+                with lock:
+                    results[i] = fut.result()
+                    left -= 1
+                    if not left:
+                        f.set_result(results)
 
         def backprop_cancel(fut):
             if fut.cancelled():
@@ -234,7 +236,7 @@ class FutureExtensions(object):
 
         f = cls(clb_executor)
         for fi in futures:
-            fi.add_done_callback(f._try_set_from)
+            fi.add_done_callback(f.try_set_from)
 
         def backprop_cancel(fut):
             if fut.cancelled():
@@ -259,17 +261,18 @@ class FutureExtensions(object):
             raise TypeError("Future.first_successful() got empty sequence")
 
         f = cls(clb_executor)
-        ctx = FutureExtensions.comb_ctx()
-        ctx.left = len(futures)
+        lock = Lock()
+        left = len(futures)
 
         def on_done(fut):
+            nonlocal left
             if not fut.cancelled() and fut.exception() is None:
                 f.try_set_result(fut.result())
             else:
-                with ctx.lock:
-                    ctx.left -= 1
-                    if not ctx.left:
-                        f._set_from(fut)
+                with lock:
+                    left -= 1
+                    if not left:
+                        f.set_from(fut)
 
         for fi in futures:
             fi.add_done_callback(on_done)

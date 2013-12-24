@@ -1,6 +1,6 @@
-from .future_callbacks import FutureBase
-from .future_extensions import FutureExtensions
+from .future_callbacks import FutureCallbacks
+from .future_extensions import FutureBaseExtensions
 
 
-class Future(FutureBase, FutureExtensions):
+class Future(FutureCallbacks, FutureBaseExtensions):
     pass

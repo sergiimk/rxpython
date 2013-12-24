@@ -115,33 +115,59 @@ class FutureCore(object):
         return self._exception
 
     def set_result(self, result):
+        """Mark the future done and set its result.
+
+        If the future is already done when this method is called, raises
+        InvalidStateError.
+        """
         if not self.try_set_result(result):
             raise InvalidStateError("result was already set")
 
     def try_set_result(self, result):
+        """Attempts to mark the future done and set its result.
+
+        Returns False if the future is already done when this method is called.
+        """
         return self._try_set_result(_FINISHED, result, None)
 
     def set_exception(self, exception):
+        """Mark the future done and set an exception.
+
+        If the future is already done when this method is called, raises
+        InvalidStateError.
+        """
         if not self.try_set_exception(exception):
             raise InvalidStateError("result was already set")
 
     def try_set_exception(self, exception):
+        """Attempts to mark the future done and set an exception.
+
+        Returns False if the future is already done when this method is called.
+        """
         assert isinstance(exception, Exception), "Promise.failure expects Exception instance"
         return self._try_set_result(_FINISHED, None, exception)
 
-    def _complete(self, fun, *args, **kwargs):
-        try:
-            self.set_result(fun(*args, **kwargs))
-        except Exception as ex:
-            self.set_exception(ex)
+    def set_from(self, other):
+        """Copies result of another future into this one.
 
-    def _set_from(self, other):
-        """Internal helper to copy state from another Future."""
-        if not self._try_set_from(other):
+        Copies either result, exception, or cancelled state depending on how
+        other future was completed.
+
+        If this future is already done when this method is called, raises
+        InvalidStateError. Other future should be done() before making this call.
+        """
+        if not self.try_set_from(other):
             raise InvalidStateError("result was already set")
 
-    def _try_set_from(self, other):
-        """Internal helper to copy state from another Future."""
+    def try_set_from(self, other):
+        """Copies result of another future into this one.
+
+        Copies either result, exception, or cancelled state depending on how
+        other future was completed.
+
+        Returns False if this future is already done when this method is called.
+        Other future should be done() before making this call.
+        """
         assert isinstance(other, FutureCore)
         assert other.done()
 

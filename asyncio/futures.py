@@ -60,5 +60,5 @@ def wrap_future(fut, *, loop=None):
     new_future.add_done_callback(_check_cancel_other)
     fut.add_done_callback(
         lambda future: loop.call_soon_threadsafe(
-            new_future._set_from, fut))
+            new_future.set_from, fut))
     return new_future

@@ -3,7 +3,7 @@ from .ensure_exception_handled import EnsureExceptionHandledGuard
 from ..config import Default
 
 
-class FutureBase(FutureCore):
+class FutureCallbacks(FutureCore):
     """Implements Future callbacks behavior."""
 
     def __init__(self, clb_executor=None):
