@@ -1,4 +1,4 @@
-from .future_base import FutureBase
+from .future_base import FutureBase, CancelledError
 from threading import Lock
 import functools
 
@@ -187,14 +187,25 @@ class FutureBaseExt(FutureBase):
         return f
 
     @classmethod
-    def all(cls, futures, *, clb_executor=None):
-        """Transforms list of futures into one future that will contain list of results.
-        In case of any failure future will be failed with first exception to occur.
-        Cancellation is propagated both ways - if aggregate future is cancelled it
-        will cancel all child futures.
+    def gather(cls, futures, *, return_exceptions=False, clb_executor=None):
+        """Return a future aggregating results from the given futures.
+
+        If all futures are completed successfully, the returned future’s result is
+        the list of results (in the order of the original sequence, not necessarily
+        in the order of future completion). If return_exceptions is True, exceptions
+        in the tasks are treated the same as successful results, and gathered in the
+        result list; otherwise, the first raised exception will be immediately
+        propagated to the returned future.
+
+        Cancellation: if the outer Future is cancelled, all children that have not
+        completed yet are also cancelled. If any child is cancelled, this is treated
+        as if it raised CancelledError – the outer Future is not cancelled in this case
+        (this is to prevent the cancellation of one child to cause other children to be
+        cancelled).
 
         Args:
             futures: list of futures to combine.
+            return_exceptions: treat exceptions as successful results
             clb_executor: default executor to use when running new future's callbacks.
         """
         if not futures:
@@ -210,13 +221,12 @@ class FutureBaseExt(FutureBase):
 
         def done(i, fut):
             nonlocal left
-            if fut.cancelled():
-                f.cancel()
-            if fut.exception() is not None:
-                f.set_exception(fut.exception())
+            exc = CancelledError() if fut.cancelled() else fut.exception()
+            if exc is not None and not return_exceptions:
+                f.set_exception(exc)
             else:
                 with lock:
-                    results[i] = fut.result()
+                    results[i] = exc if exc is not None else fut.result()
                     left -= 1
                     if not left:
                         f.set_result(results)
@@ -307,8 +317,12 @@ class FutureBaseExt(FutureBase):
     def reduce(cls, futures, fun, initial, *, executor=None, clb_executor=None):
         """Returns future which will be set with reduced result of all provided futures.
         In case of any failure future will be failed with first exception to occur.
-        Cancellation is propagated both ways - if aggregate future is cancelled it
-        will cancel all child futures.
+
+        Cancellation: if the outer Future is cancelled, all children that have not
+        completed yet are also cancelled. If any child is cancelled, this is treated
+        as if it raised CancelledError – the outer Future is not cancelled in this case
+        (this is to prevent the cancellation of one child to cause other children to be
+        cancelled).
 
         Args:
             futures: list of futures to combine.
@@ -317,7 +331,7 @@ class FutureBaseExt(FutureBase):
             clb_executor: default executor to use when running new future's callbacks.
         """
         return cls \
-            .all(futures, clb_executor=clb_executor) \
+            .gather(futures, clb_executor=clb_executor) \
             .map(lambda results: functools.reduce(fun, results, initial), executor=executor)
 
     @classmethod

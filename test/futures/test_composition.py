@@ -40,7 +40,7 @@ class FutureCompositionTest(FutureTestBase):
         f1 = asyncio.Future(loop=asyncio.new_event_loop())
         f2 = asyncio.Future(loop=asyncio.new_event_loop())
 
-        self.assertRaises(ValueError, asyncio.Future.all, [f1, f2])
+        self.assertRaises(ValueError, asyncio.Future.gather, [f1, f2])
         self.assertRaises(ValueError, asyncio.Future.first, [f1, f2])
         self.assertRaises(ValueError, asyncio.Future.first_successful, [f1, f2])
 
@@ -228,36 +228,41 @@ class FutureCompositionTest(FutureTestBase):
         f1.cancel()
         self.assertTrue(f2.cancelled())
 
-    def test_all(self):
+    def test_gather(self):
         futures = [self.success_after(0.01, i) for i in range(5)]
-        fall = Future.all(futures).map(sum)
+        fall = Future.gather(futures).map(sum)
         self.assertEqual(sum(range(5)), fall.result(timeout=10))
 
-    def test_all_failure(self):
-        futures = []
+    def test_gather_failure(self):
+        futures = [self.success_after(0.01, i) for i in range(5)]
+        futures[3] = self.raise_after(0.02, TypeError())
 
-        for i in range(5):
-            if i != 3:
-                futures.append(self.success_after(0.01, i))
-            else:
-                futures.append(self.raise_after(0.02, TypeError()))
-
-        fall = Future.all(futures).map(sum)
+        fall = Future.gather(futures).map(sum)
         self.assertRaises(TypeError, fall.result, 10)
 
-    def test_all_cancellation_back(self):
+    def test_gather_failure_as_result(self):
         futures = [self.success_after(0.01, i) for i in range(5)]
-        fall = Future.all(futures).map(sum)
+        futures[3] = self.raise_after(0.02, TypeError())
+
+        fall = Future.gather(futures, return_exceptions=True)
+        res = fall.result(timeout=10)
+        self.assertIsInstance(res[3], TypeError)
+
+        del res[3]
+        self.assertListEqual([0, 1, 2, 4], res)
+
+    def test_gather_cancellation_back(self):
+        futures = [self.success_after(0.01, i) for i in range(5)]
+        fall = Future.gather(futures).map(sum)
         fall.cancel()
         self.assertTrue(all(map(Future.cancelled, futures)))
 
-    def test_all_cancellation_forth(self):
+    def test_gather_cancellation_forth(self):
         futures = [self.success_after(0.01, i) for i in range(5)]
-        fall = Future.all(futures).map(sum)
+        fall = Future.gather(futures).map(sum)
         futures[3].cancel()
-        self.assertTrue(all(map(Future.cancelled, futures)))
-        self.assertTrue(fall.cancelled())
-        self.assertTrue(all(map(Future.cancelled, futures)))
+        self.assertRaises(CancelledError, fall.result)
+        self.assertFalse(all(map(Future.cancelled, futures)))
 
     def test_first(self):
         futures = [Future() for _ in range(5)]

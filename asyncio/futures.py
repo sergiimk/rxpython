@@ -64,7 +64,7 @@ class Future(concurrent.futures.cooperative.Future):
         try:
             it = iter(futures)
             first = next(it)._loop
-            if not all(first == rest for rest in it):
+            if not all(first is rest._loop for rest in it):
                 raise ValueError('Futures should belong to the same event loop')
         except StopIteration:
             pass
