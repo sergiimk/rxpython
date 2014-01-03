@@ -50,10 +50,10 @@ class Future(concurrent.futures.cooperative.Future):
 
     @classmethod
     def convert(cls, future):
-        """Enables compatibility with multithreaded futures by wrapping."""
-        if isinstance(future, cls):
+        """Enables compatibility with other futures by wrapping."""
+        if isinstance(future, Future):
             return future
-        if isinstance(future, concurrent.futures.multithreaded.Future):
+        if isinstance(future, concurrent.futures.FutureBase):
             return wrap_future(future)
         raise TypeError("{} is not compatible with {}"
         .format(_typename(cls), _typename(type(future))))
@@ -64,11 +64,11 @@ def _typename(cls):
 
 
 def wrap_future(fut, *, loop=None):
-    """Wrap concurrent.futures.Future object."""
+    """Wrap concurrent.futures.FutureBase object."""
     if isinstance(fut, Future):
         return fut
-    assert isinstance(fut, concurrent.futures.multithreaded.Future), \
-        'concurrent.futures.threaded.Future is expected, got {!r}'.format(fut)
+    assert isinstance(fut, concurrent.futures.FutureBase), \
+        'concurrent.futures.FutureBase is expected, got {!r}'.format(fut)
     if loop is None:
         loop = events.get_event_loop()
     new_future = Future(loop=loop)

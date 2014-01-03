@@ -1,6 +1,6 @@
 from concurrent.futures.cooperative.future_base import _PENDING, _CANCELLED
 from concurrent.futures.cooperative.future_extensions import FutureBaseExt
-from concurrent.futures.cooperative.future import Future as FutureST
+from concurrent.futures.cooperative.future import Future as FutureCoop
 from ..exceptions import TimeoutError
 from threading import Condition
 
@@ -100,12 +100,10 @@ class Future(FutureBaseExt):
     @classmethod
     def convert(cls, future):
         """Single-threaded futures are compatible with multithreaded."""
-        if isinstance(future, cls):
+        if isinstance(future, cls) or isinstance(future, FutureCoop):
             return future
-        if not isinstance(future, FutureST):
-            raise TypeError("{} is not compatible with {}"
-            .format(_typename(cls), _typename(type(future))))
-        return future
+        raise TypeError("{} is not compatible with {}"
+                        .format(_typename(cls), _typename(type(future))))
 
 
 def _typename(cls):
