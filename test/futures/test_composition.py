@@ -247,6 +247,7 @@ class FutureCompositionTest(FutureTestBase):
         futures[3].cancel()
         self.assertTrue(all(map(Future.cancelled, futures)))
         self.assertTrue(fall.cancelled())
+        self.assertTrue(all(map(Future.cancelled, futures)))
 
     def test_first(self):
         futures = [Future() for _ in range(5)]
