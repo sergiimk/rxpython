@@ -242,7 +242,7 @@ class FutureCompositionTest(FutureTestBase):
         futures[3] = self.raise_after(0.02, TypeError())
 
         fall = Future.gather(futures).map(sum)
-        self.assertRaises(TypeError, fall.result, 10)
+        self.assertRaises(TypeError, fall.result, timeout=10)
 
     def test_gather_failure_as_result(self):
         futures = [self.success_after(0.01, i) for i in range(5)]
@@ -265,7 +265,7 @@ class FutureCompositionTest(FutureTestBase):
         futures = [self.success_after(0.01, i) for i in range(5)]
         fall = Future.gather(futures).map(sum)
         futures[3].cancel()
-        self.assertRaises(CancelledError, fall.result)
+        self.assertRaises(CancelledError, fall.result, timeout=10)
         self.assertFalse(all(map(Future.cancelled, futures)))
 
     def test_first(self):
@@ -324,7 +324,7 @@ class FutureCompositionTest(FutureTestBase):
     def test_first_successful_failure(self):
         futures = [self.raise_after(0.001, TypeError()) for _ in range(5)]
         fall = Future.first_successful(futures)
-        self.assertRaises(TypeError, fall.result, 10)
+        self.assertRaises(TypeError, fall.result, timeout=10)
 
     def test_reduce(self):
         futures = [self.success_after(0.01, i) for i in range(5)]

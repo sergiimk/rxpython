@@ -1,7 +1,7 @@
 from concurrent.futures.cooperative.future_base import _PENDING, _CANCELLED
 from concurrent.futures.cooperative.future_extensions import FutureBaseExt
 from concurrent.futures.cooperative.future import Future as FutureCoop
-from ..exceptions import TimeoutError
+from ..exceptions import InvalidStateError, TimeoutError
 from threading import Condition
 
 
@@ -44,36 +44,57 @@ class Future(FutureBaseExt):
         with self._mutex:
             return super().cancelled()
 
-    def result(self, *, timeout=None):
-        """Return the result this future represents.
+    def wait(self, timeout=None):
+        """Blocking wait for future to complete.
         If the future has not yet been completed this method blocks for
-        up to timeout seconds. If timeout is not specified it will block
-        for unlimited time.
+        specified number of seconds. If timeout is not specified it will
+        block indefinitely.
 
-        If the future has been cancelled, raises CancelledError.  If the
-        future does not complete in specified time frame, raises TimeoutError.  If
-        the future is done and has an exception set, this exception is raised.
+        Returns True if future is completed.
         """
         with self._mutex:
             if self._state == _PENDING:
                 self._mutex.wait(timeout)
+            return self._state != _PENDING
+
+    def result(self, *, timeout=None):
+        """Return the result this future represents.
+        If the future has not yet been completed this method blocks for
+        up to timeout seconds.
+
+        If timeout is not specified and the future is not completed, raises
+        InvalidStateError.
+        If the future has been cancelled, raises CancelledError.
+        If the future does not complete in specified time frame, raises TimeoutError.
+        If the future is done and has an exception set, this exception is raised.
+        """
+        with self._mutex:
+            if self._state == _PENDING:
+                if timeout is None:
+                    raise InvalidStateError('Result is not ready.')
+                else:
+                    self._mutex.wait(timeout)
             if self._state == _PENDING:
                 raise TimeoutError("Future waiting timeout reached")
             return super().result()
 
     def exception(self, *, timeout=None):
-        """Return the exception that was set on this future.
+        """Return the exception that was set to this future.
         If the future has not yet been completed this method blocks for
-        up to timeout seconds. If timeout is not specified it will block
-        for unlimited time.
+        up to timeout seconds.
 
+        If timeout is not specified and the future is not completed, raises
+        InvalidStateError.
         If the future has been cancelled, raises CancelledError.
         If the future does not complete in specified time frame,
         raises TimeoutError.
         """
         with self._mutex:
             if self._state == _PENDING:
-                self._mutex.wait(timeout)
+                if timeout is None:
+                    raise InvalidStateError('Result is not ready.')
+                else:
+                    self._mutex.wait(timeout)
             if self._state == _PENDING:
                 raise TimeoutError("Future waiting timeout reached")
             return super().exception()
@@ -103,7 +124,7 @@ class Future(FutureBaseExt):
         if isinstance(future, cls) or isinstance(future, FutureCoop):
             return future
         raise TypeError("{} is not compatible with {}"
-                        .format(_typename(cls), _typename(type(future))))
+        .format(_typename(cls), _typename(type(future))))
 
 
 def _typename(cls):

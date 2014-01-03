@@ -18,7 +18,7 @@ class ThreadPoolExecutorTest(unittest.TestCase):
                 raise TypeError()
 
             f = tpx.submit(error)
-            self.assertRaises(TypeError, functools.partial(f.result, 10))
+            self.assertRaises(TypeError, functools.partial(f.result, timeout=10))
 
     def test_cancellation(self):
         with ThreadPoolExecutor(1) as tpx:
@@ -26,6 +26,11 @@ class ThreadPoolExecutorTest(unittest.TestCase):
             f = tpx.submit(math.factorial, 10)
             f.cancel()
             self.assertRaises(CancelledError, f.result)
+
+    def test_raises_with_notimeout(self):
+        f = Future()
+        self.assertRaises(InvalidStateError, f.result)
+        self.assertRaises(InvalidStateError, f.exception)
 
     def test_timeouts(self):
         f = Future()
