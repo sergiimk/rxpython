@@ -58,6 +58,17 @@ class Future(concurrent.futures.cooperative.Future):
         raise TypeError("{} is not compatible with {}"
         .format(_typename(cls), _typename(type(future))))
 
+    @classmethod
+    def compatible(cls, futures):
+        """Verifies that all futures belong to the same event loop."""
+        try:
+            it = iter(futures)
+            first = next(it)._loop
+            if not all(first == rest for rest in it):
+                raise ValueError('Futures should belong to the same event loop')
+        except StopIteration:
+            pass
+
 
 def _typename(cls):
     return cls.__module__ + '.' + cls.__name__

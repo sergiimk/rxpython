@@ -34,6 +34,16 @@ class FutureCompositionTest(FutureTestBase):
         mt = MT.Future()
         self.assertIsNot(mt, asyncio.Future.convert(mt))
 
+    def test_asyncio_composition_checks_for_same_loop(self):
+        import asyncio
+
+        f1 = asyncio.Future(loop=asyncio.new_event_loop())
+        f2 = asyncio.Future(loop=asyncio.new_event_loop())
+
+        self.assertRaises(ValueError, asyncio.Future.all, [f1, f2])
+        self.assertRaises(ValueError, asyncio.Future.first, [f1, f2])
+        self.assertRaises(ValueError, asyncio.Future.first_successful, [f1, f2])
+
     def test_recover_clb(self):
         f = Future()
         fr = f.recover(lambda _: None)

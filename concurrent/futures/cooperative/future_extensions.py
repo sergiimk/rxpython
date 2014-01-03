@@ -6,7 +6,6 @@ import functools
 class FutureBaseExt(FutureBase):
     """ABC for Future combination functions."""
 
-    #todo: completed optimization
     @classmethod
     def successful(cls, result=None, *, clb_executor=None):
         """Returns successfully completed future.
@@ -202,6 +201,7 @@ class FutureBaseExt(FutureBase):
             return cls.successful([], clb_executor=clb_executor)
 
         futures = list(map(cls.convert, futures))
+        cls.compatible(futures)
         f = cls._new(clb_executor=clb_executor)
 
         lock = Lock()
@@ -246,6 +246,7 @@ class FutureBaseExt(FutureBase):
             raise TypeError("Future.first() got empty sequence")
 
         futures = list(map(cls.convert, futures))
+        cls.compatible(futures)
         f = cls._new(clb_executor=clb_executor)
 
         for fi in futures:
@@ -275,6 +276,7 @@ class FutureBaseExt(FutureBase):
             raise TypeError("Future.first_successful() got empty sequence")
 
         futures = list(map(cls.convert, futures))
+        cls.compatible(futures)
         f = cls._new(clb_executor=clb_executor)
 
         lock = Lock()
@@ -338,6 +340,10 @@ class FutureBaseExt(FutureBase):
             raise TypeError("{} is not compatible with {}"
             .format(_typename(cls), _typename(type(future))))
         return future
+
+    @classmethod
+    def compatible(cls, futures):
+        pass
 
 
 def _typename(cls):
