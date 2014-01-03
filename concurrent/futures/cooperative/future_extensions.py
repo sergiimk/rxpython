@@ -119,7 +119,7 @@ class FutureBaseExt(FutureBase):
             completion of first one, or Future instance directly.
             executor: Executor to use when performing call to function (default - Synchronous).
         """
-        assert callable(future_fun), "Future.then expects callable"
+        assert callable(future_fun) or isinstance(future_fun, FutureBase), "Future.then expects callable or Future"
 
         f = self._new()
 
@@ -130,6 +130,7 @@ class FutureBaseExt(FutureBase):
                 try:
                     f2_raw = future_fun if isinstance(future_fun, FutureBase) else future_fun()
                     f2 = self.convert(f2_raw)
+                    self.compatible([self, f2])
                     f2.add_done_callback(f.set_from)
                 except Exception as ex:
                     f.set_exception(ex)
@@ -155,7 +156,7 @@ class FutureBaseExt(FutureBase):
             fallback, or Future instance directly.
             executor: Executor to use when performing call to function.
         """
-        assert callable(future_fun), "Future.fallback expects callable"
+        assert callable(future_fun) or isinstance(future_fun, FutureBase), "Future.fallback expects callable or Future"
 
         f = self._new()
 
@@ -166,6 +167,7 @@ class FutureBaseExt(FutureBase):
                 try:
                     f2_raw = future_fun if isinstance(future_fun, FutureBase) else future_fun()
                     f2 = self.convert(f2_raw)
+                    self.compatible([self, f2])
 
                     def backprop_cancel_fallback(fut):
                         if fut.cancelled():

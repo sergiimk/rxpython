@@ -44,6 +44,10 @@ class FutureCompositionTest(FutureTestBase):
         self.assertRaises(ValueError, asyncio.Future.first, [f1, f2])
         self.assertRaises(ValueError, asyncio.Future.first_successful, [f1, f2])
 
+        f1 = asyncio.Future.failed(TypeError())
+        f3 = f1.fallback(f2)
+        self.assertRaises(ValueError, asyncio.get_event_loop().run_until_complete, f3)
+
     def test_recover_clb(self):
         f = Future()
         fr = f.recover(lambda _: None)
