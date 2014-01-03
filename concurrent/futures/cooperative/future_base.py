@@ -32,9 +32,9 @@ class FutureBase:
     def add_done_callback(self, fun_res, *, executor=None):
         """Add a callback to be run when the future becomes done.
 
-        The callback is called with a single argument - the future object. If
-        the future is already done when this is called, the callback is
-        scheduled with call_soon.
+        The callback is called with a single argument - the future object.
+        Callback is scheduled with either provided executor or with default
+        executor of this future.
         """
         assert callable(fun_res) or fun_res is None, \
             "Future.add_done_callback expects callable or None"
