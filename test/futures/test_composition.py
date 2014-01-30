@@ -1,11 +1,11 @@
 from .test_base import FutureTestBase
-from concurrent.futures.multithreaded import *
+from rx.futures.multithreaded import *
 
 
 class FutureCompositionTest(FutureTestBase):
     def test_conversions_same(self):
-        import concurrent.futures.cooperative as COOP
-        import concurrent.futures.multithreaded as MT
+        import rx.futures.cooperative as COOP
+        import rx.futures.multithreaded as MT
 
         coop = COOP.Future()
         mt = MT.Future()
@@ -14,39 +14,18 @@ class FutureCompositionTest(FutureTestBase):
         self.assertIs(coop, COOP.Future.convert(coop))
 
     def test_conversions_mt_compatible_with_coop(self):
-        import concurrent.futures.cooperative as COOP
-        import concurrent.futures.multithreaded as MT
+        import rx.futures.cooperative as COOP
+        import rx.futures.multithreaded as MT
 
         coop = COOP.Future()
         self.assertIs(coop, MT.Future.convert(coop))
 
     def test_conversions_coop_incompatible_with_mt(self):
-        import concurrent.futures.cooperative as COOP
-        import concurrent.futures.multithreaded as MT
+        import rx.futures.cooperative as COOP
+        import rx.futures.multithreaded as MT
 
         mt = MT.Future()
         self.assertRaises(TypeError, COOP.Future.convert, mt)
-
-    def test_asyncio_wrapping_mt(self):
-        import concurrent.futures.multithreaded as MT
-        import asyncio
-
-        mt = MT.Future()
-        self.assertIsNot(mt, asyncio.Future.convert(mt))
-
-    def test_asyncio_composition_checks_for_same_loop(self):
-        import asyncio
-
-        f1 = asyncio.Future(loop=asyncio.new_event_loop())
-        f2 = asyncio.Future(loop=asyncio.new_event_loop())
-
-        self.assertRaises(ValueError, asyncio.Future.gather, [f1, f2])
-        self.assertRaises(ValueError, asyncio.Future.first, [f1, f2])
-        self.assertRaises(ValueError, asyncio.Future.first_successful, [f1, f2])
-
-        f1 = asyncio.Future.failed(TypeError())
-        f3 = f1.fallback(f2)
-        self.assertRaises(ValueError, asyncio.get_event_loop().run_until_complete, f3)
 
     def test_recover_clb(self):
         f = Future()

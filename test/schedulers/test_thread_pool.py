@@ -1,5 +1,5 @@
-from concurrent.executors import ThreadPoolExecutor
-from concurrent.futures.multithreaded import *
+from rx.schedulers import ThreadPoolScheduler
+from rx.futures.multithreaded import *
 import time
 import math
 import functools
@@ -8,12 +8,12 @@ import unittest
 
 class ThreadPoolExecutorTest(unittest.TestCase):
     def test_submit_success(self):
-        with ThreadPoolExecutor(1) as tpx:
+        with ThreadPoolScheduler(1) as tpx:
             f = tpx.submit(lambda: math.factorial(10))
             self.assertEqual(3628800, f.result(timeout=10))
 
     def test_submit_failure(self):
-        with ThreadPoolExecutor(1) as tpx:
+        with ThreadPoolScheduler(1) as tpx:
             def error():
                 raise TypeError()
 
@@ -21,7 +21,7 @@ class ThreadPoolExecutorTest(unittest.TestCase):
             self.assertRaises(TypeError, functools.partial(f.result, timeout=10))
 
     def test_cancellation(self):
-        with ThreadPoolExecutor(1) as tpx:
+        with ThreadPoolScheduler(1) as tpx:
             tpx.submit(time.sleep, 0.01)
             f = tpx.submit(math.factorial, 10)
             f.cancel()
@@ -40,8 +40,8 @@ class ThreadPoolExecutorTest(unittest.TestCase):
     def test_callback_executor(self):
         import threading
 
-        with ThreadPoolExecutor(1) as tpx1:
-            with ThreadPoolExecutor(1) as tpx2:
+        with ThreadPoolScheduler(1) as tpx1:
+            with ThreadPoolScheduler(1) as tpx2:
                 thread_main = threading.current_thread()
                 thread_body = 1
                 thread_clb = 2
@@ -57,7 +57,7 @@ class ThreadPoolExecutorTest(unittest.TestCase):
                     thread_clb = threading.current_thread()
 
                 f = tpx1.submit(run)
-                f2 = f.map(clb, executor=tpx2)
+                f2 = f.map(clb, executor=tpx2.submit)
 
                 f2.result(timeout=10)
                 self.assertNotEqual(thread_main, thread_body)

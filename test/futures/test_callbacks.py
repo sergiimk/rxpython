@@ -1,6 +1,6 @@
 from .test_base import FutureTestBase
-from concurrent.futures.cooperative import *
-from concurrent.futures.config import Default
+from rx.futures.cooperative import *
+from rx.futures.config import Default
 
 
 class FutureCallbacksTest(FutureTestBase):

@@ -1,4 +1,4 @@
-from concurrent.futures.cooperative import *
+from rx.futures.cooperative import *
 from .test_base import FutureTestBase
 import functools
 
@@ -12,9 +12,9 @@ class FutureCoreTest(FutureTestBase):
         repr(f)
 
     def test_type_checks(self):
-        import concurrent.futures.cooperative as coop
-        import concurrent.futures.multithreaded as mt
-        from concurrent.futures import FutureBase
+        import rx.futures.cooperative as coop
+        import rx.futures.multithreaded as mt
+        from rx.futures import FutureBase
 
         fcoop = coop.Future()
         fmt = mt.Future()

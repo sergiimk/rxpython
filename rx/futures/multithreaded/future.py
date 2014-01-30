@@ -1,8 +1,10 @@
-from concurrent.futures.cooperative.future_base import _PENDING, _CANCELLED
-from concurrent.futures.cooperative.future_extensions import FutureBaseExt
-from concurrent.futures.cooperative.future import Future as FutureCoop
+from ..cooperative.future_base import _PENDING, _CANCELLED
+from ..cooperative.future_extensions import FutureBaseExt
 from ..exceptions import InvalidStateError, TimeoutError
 from threading import Condition
+
+from ..cooperative.future import Future as FutureCoop
+from concurrent.futures import Future as FutureCF
 
 
 class Future(FutureBaseExt):
@@ -123,8 +125,33 @@ class Future(FutureBaseExt):
         """Single-threaded futures are compatible with multithreaded."""
         if isinstance(future, cls) or isinstance(future, FutureCoop):
             return future
+        if isinstance(future, FutureCF):
+            return cls._wrap_concurrent_future(future)
         raise TypeError("{} is not compatible with {}"
         .format(_typename(cls), _typename(type(future))))
+
+    @classmethod
+    def _wrap_concurrent_future(cls, cff):
+        f = cls()
+
+        def done(_):
+            if cff.cancelled():
+                f.cancel()
+            else:
+                exception = cff.exception()
+                if exception is not None:
+                    f.set_exception(exception)
+                else:
+                    f.set_result(cff.result())
+
+        def backprop_cancel(_):
+            if f.cancelled():
+                cff.cancel()
+
+        cff.add_done_callback(done)
+        f.add_done_callback(backprop_cancel)
+
+        return f
 
 
 def _typename(cls):

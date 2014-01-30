@@ -1,3 +1,5 @@
+
+
 class Error(Exception):
     """Base class for all future-related exceptions."""
     pass

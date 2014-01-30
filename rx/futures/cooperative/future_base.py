@@ -1,7 +1,6 @@
-from ..config import Default
 from .ensure_exception_handled import EnsureExceptionHandledGuard
-from concurrent.futures.exceptions import (InvalidStateError,
-                                           CancelledError)
+from ..config import Default
+from ..exceptions import (InvalidStateError, CancelledError)
 
 
 # States for Future.
