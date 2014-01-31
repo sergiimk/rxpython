@@ -1,4 +1,4 @@
-from .exceptions import StreamEndError
+from ._exceptions import StreamEndError
 from ..futures.cooperative import Future, CancelledError, InvalidStateError
 
 

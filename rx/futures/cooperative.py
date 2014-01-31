@@ -1,4 +1,5 @@
-from ..future_extensions import FutureBaseExt
+from ._future_base import FutureBase, InvalidStateError, CancelledError
+from ._future_extensions import FutureBaseExt
 
 
 class Future(FutureBaseExt):

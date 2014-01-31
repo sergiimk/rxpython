@@ -1,4 +1,4 @@
-from .scheduler_base import SchedulerBase
+from ._scheduler_base import SchedulerBase
 from ..futures.multithreaded import Future
 from ..config import Default
 from concurrent.futures.thread import ThreadPoolExecutor

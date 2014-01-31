@@ -1,10 +1,10 @@
-from ..future_base import _PENDING, _CANCELLED
-from ..future_extensions import FutureBaseExt
-from ..exceptions import InvalidStateError, TimeoutError
+from ._future_base import _PENDING, _CANCELLED
+from ._future_extensions import FutureBaseExt
+from ._exceptions import InvalidStateError, TimeoutError, CancelledError
 from threading import Condition
 
-from ..cooperative.future import Future as FutureCoop
-from concurrent.futures import Future as FutureCF
+from .cooperative import Future as _FutureCoop
+from concurrent.futures import Future as _FutureCF
 
 
 # TODO: validate impossible to re-enter the mutex from callback
@@ -124,9 +124,9 @@ class Future(FutureBaseExt):
     @classmethod
     def convert(cls, future):
         """Single-threaded futures are compatible with multithreaded."""
-        if isinstance(future, cls) or isinstance(future, FutureCoop):
+        if isinstance(future, cls) or isinstance(future, _FutureCoop):
             return future
-        if isinstance(future, FutureCF):
+        if isinstance(future, _FutureCF):
             return cls._wrap_concurrent_future(future)
         raise TypeError("{} is not compatible with {}"
         .format(_typename(cls), _typename(type(future))))

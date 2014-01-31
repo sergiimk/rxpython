@@ -1,4 +1,4 @@
-from .future_base import FutureBase, CancelledError
+from ._future_base import FutureBase, CancelledError
 from threading import Lock
 import functools
 

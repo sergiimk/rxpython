@@ -1,4 +1,4 @@
-from rx.observables import Observable, StreamEndError, CancelledError
+from rx.observables.cooperative import Observable, StreamEndError, CancelledError
 import unittest
 
 
