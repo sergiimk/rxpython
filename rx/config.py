@@ -6,7 +6,7 @@ logger = logging.getLogger(__package__)
 
 def log_error_handler(cls, tb):
     try:
-        logger.error('Future/Task exception was never retrieved:\n%s',
+        logger.error('Future exception was never retrieved:\n%s',
                      ''.join(tb))
     except:
         pass

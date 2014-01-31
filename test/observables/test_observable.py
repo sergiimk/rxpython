@@ -1,8 +1,5 @@
+from rx.observables import Observable, StreamEndError
 import unittest
-
-
-class StreamEndError(Exception):
-    pass
 
 
 class ObservableTest(unittest.TestCase):
@@ -14,49 +11,59 @@ if __name__ == '__main__':
     #unittest.main()
     import asyncio
     import logging
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
 
-    class source:
-        def __init__(self):
-            self.i = 0
-            self.last = 5
+    def tick(i, obs):
+        obs.set_next_value(i)
+        if i < 4:
+            asyncio.get_event_loop().call_later(0.5, tick, i + 1, obs)
+        else:
+            obs.set_end()
 
-        @asyncio.coroutine
-        def recv(self):
-            yield from asyncio.sleep(0.5)
+    def process():
+        obs = Observable()
+        asyncio.get_event_loop().call_soon(tick, 0, obs)
 
-            if self.i == self.last:
-                raise StreamEndError()
-            else:
-                r = self.i
-                self.i += 1
-                return r
-
-        def get_next(self):
-            return self.recv()
-
-        def __next__(self):
-            if self.i == self.last:
-                raise StopIteration()
-            return self.recv()
-
-        def __iter__(self):
-            return self
+        futures = [obs.next() for _ in range(10)]
 
 
+        def clb(obs, fut):
+            print(futures)
+            #print(obs, fut)
+            if isinstance(fut.exception(), StreamEndError):
+                asyncio.get_event_loop().stop()
+
+        obs.add_observe_callback(clb)
+
+    process()
+    loop = asyncio.get_event_loop()
+    loop.run_forever()
+
+
+'''
+class source:
+    def __init__(self):
+        self.i = 0
+        self.last = 5
 
     @asyncio.coroutine
-    def process():
-        s = source()
+    def recv(self):
+        yield from asyncio.sleep(0.5)
 
-        futures = [s.get_next() for _ in range(10)]
-        res = yield from asyncio.gather(*futures, return_exceptions=True)
-        print(res)
+        if self.i == self.last:
+            raise StreamEndError()
+        else:
+            r = self.i
+            self.i += 1
+            return r
 
+    def get_next(self):
+        return self.recv()
 
-        #for f in s:
-        #    val = yield from f
-        #    print(val)
+    def __next__(self):
+        if self.i == self.last:
+            raise StopIteration()
+        return self.recv()
 
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(process())
+    def __iter__(self):
+        return self'''

@@ -1,0 +1,4 @@
+
+
+class StreamEndError(Exception):
+    pass
