@@ -1,9 +1,7 @@
-from ..futures.cooperative import Future
-from ._observable_base import (ObservableBase,
-                               StreamEndError,
-                               CancelledError,
-                               InvalidStateError)
+from ._observable_extensions import ObservableBaseExt
+from ._exceptions import StreamEndError
+from ..futures.cooperative import Future, CancelledError, InvalidStateError
 
 
-class Observable(ObservableBase):
+class Observable(ObservableBaseExt):
     _future = Future

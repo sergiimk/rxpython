@@ -1,9 +1,11 @@
-from ._observable_base import ObservableBase, _ACTIVE, _CANCELLED
-from ..futures.multithreaded import Future
+from ._observable_extensions import ObservableBaseExt
+from ._observable_base import _ACTIVE, _CANCELLED
+from ._exceptions import StreamEndError
+from ..futures.multithreaded import Future, CancelledError, InvalidStateError
 from threading import Lock
 
 
-class Observable(ObservableBase):
+class Observable(ObservableBaseExt):
     _future = Future
 
     def __init__(self, *, clb_executor=None):
