@@ -4,7 +4,13 @@ import abc
 class SchedulerBase(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
-    def submit(self, fn, *vargs, **kwargs):
+    def __call__(self, fn, *args, **kwargs):
+        """Same as submit but does not produce future in
+        response. This method is intended to allow using
+        schedulers as Executors for Future callbacks"""
+
+    @abc.abstractmethod
+    def submit(self, fn, *args, **kwargs):
         """Schedule execution of specified function"""
 
     @abc.abstractmethod

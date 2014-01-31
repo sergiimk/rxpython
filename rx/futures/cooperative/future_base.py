@@ -1,5 +1,6 @@
 from .ensure_exception_handled import EnsureExceptionHandledGuard
-from ..config import Default
+from .synchronous_executor import Synchronous
+from ...config import Default
 from ..exceptions import (InvalidStateError, CancelledError)
 
 
@@ -26,7 +27,7 @@ class FutureBase:
         """
         self._callbacks = []
         self._callbacks = []
-        self._executor = clb_executor or Default.get_callback_executor()
+        self._executor = clb_executor or Synchronous
 
     def add_done_callback(self, fun_res, *, executor=None):
         """Add a callback to be run when the future becomes done.

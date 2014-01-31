@@ -27,7 +27,7 @@ class ThreadPoolExecutorTest(unittest.TestCase):
             f.cancel()
             self.assertRaises(CancelledError, f.result)
 
-    def test_raises_with_notimeout(self):
+    def test_raises_with_no_timeout(self):
         f = Future()
         self.assertRaises(InvalidStateError, f.result)
         self.assertRaises(InvalidStateError, f.exception)
@@ -57,7 +57,7 @@ class ThreadPoolExecutorTest(unittest.TestCase):
                     thread_clb = threading.current_thread()
 
                 f = tpx1.submit(run)
-                f2 = f.map(clb, executor=tpx2.submit)
+                f2 = f.map(clb, executor=tpx2)
 
                 f2.result(timeout=10)
                 self.assertNotEqual(thread_main, thread_body)

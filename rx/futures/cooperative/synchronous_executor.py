@@ -1,4 +1,4 @@
-from ..config import Default
+from ...config import Default
 
 
 class SynchronousExecutor(object):

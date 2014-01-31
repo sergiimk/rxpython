@@ -17,17 +17,6 @@ class Default(object):
     # This includes exceptions in on_success and on_failure callbacks
     UNHANDLED_FAILURE_CALLBACK = staticmethod(log_error_handler)
 
-    # Default executor for future callbacks
-    CALLBACK_EXECUTOR = None
-
-    @staticmethod
-    def get_callback_executor():
-        if not Default.CALLBACK_EXECUTOR:
-            from .cooperative.synchronous_executor import Synchronous
-
-            Default.CALLBACK_EXECUTOR = Synchronous
-        return Default.CALLBACK_EXECUTOR
-
     @staticmethod
     def on_unhandled_error(exc):
         tb = traceback.format_exception(exc.__class__, exc,

@@ -3,6 +3,7 @@ from threading import Lock
 import functools
 
 
+# TODO: no need for locks for cooperative futures
 class FutureBaseExt(FutureBase):
     """ABC for Future combination functions."""
 
