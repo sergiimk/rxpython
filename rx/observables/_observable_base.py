@@ -1,5 +1,5 @@
 from ._exceptions import StreamEndError
-from ..futures.cooperative import Future, CancelledError, InvalidStateError
+from ..futures import FutureBase, Synchronous, CancelledError, InvalidStateError
 
 
 # States for Observable
@@ -10,22 +10,24 @@ _ENDED = 'ENDED'
 
 # TODO: subscription-baser callback removal and cancellation
 class ObservableBase:
+    _future = None
     _state = _ACTIVE
 
-    def __init__(self):
+    def __init__(self, *, clb_executor=None):
         self._promises = []
         self._callbacks = []
+        self._executor = clb_executor or Synchronous
 
-    def add_observe_callback(self, fun):
+    def add_observe_callback(self, fun, *, executor=None):
         if self._state != _ACTIVE:
-            future = Future()
+            future = self._future(clb_executor=executor or self._executor)
             future.set_exception(StreamEndError() if self._state == _ENDED else CancelledError())
-            self._run_callback(fun, future)
+            self._run_callback(fun, future, executor)
         else:
-            self._callbacks.append(fun)
+            self._callbacks.append((fun, executor))
 
     def remove_observe_callback(self, fun):
-        filtered_callbacks = [f for f in self._callbacks if f != fun]
+        filtered_callbacks = [(f, exec) for f, exec in self._callbacks if f != fun]
         removed_count = len(self._callbacks) - len(filtered_callbacks)
         if removed_count:
             self._callbacks[:] = filtered_callbacks
@@ -40,8 +42,14 @@ class ObservableBase:
         return self._state != _ACTIVE
 
     def next(self):
-        promise = Future()
-        self._promises.append(promise)
+        """Returns Future representing next value in the stream."""
+        promise = self._future(clb_executor=self._executor)
+
+        if self._state != _ACTIVE:
+            promise.set_exception(StreamEndError() if self._state == _ENDED else CancelledError())
+        else:
+            self._promises.append(promise)
+
         return promise
 
     def cancel(self):
@@ -73,7 +81,7 @@ class ObservableBase:
 
         if self._callbacks:
             if promise is None:
-                promise = Future()
+                promise = self._future(clb_executor=self._executor)
                 promise.set_result(value)
             self._run_callbacks(promise)
 
@@ -101,17 +109,18 @@ class ObservableBase:
 
         if self._callbacks:
             if promise is None:
-                promise = Future()
+                promise = self._future(clb_executor=self._executor)
                 promise.set_exception(exc)
             self._run_callbacks(promise)
 
     def _run_callbacks(self, future):
         callbacks = self._callbacks[:]
-        for clb in callbacks:
-            clb(self, future)
+        for fun, executor in callbacks:
+            self._run_callback(fun, future, executor)
 
-    def _run_callback(self, fun, future):
-        fun(self, future)
+    def _run_callback(self, fun, future, executor):
+        executor = executor or self._executor
+        executor(fun, self, future)
 
     def __repr__(self):
         res = self.__class__.__name__
@@ -126,3 +135,16 @@ class ObservableBase:
         else:
             res += '<{}>'.format(self._state)
         return res
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return self.next().recover(ObservableBase._rec_iter)
+
+    @staticmethod
+    def _rec_iter(exc):
+        if isinstance(exc, StreamEndError):
+            raise StopIteration
+        else:
+            raise exc

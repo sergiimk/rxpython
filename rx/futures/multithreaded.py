@@ -7,7 +7,6 @@ from .cooperative import Future as _FutureCoop
 from concurrent.futures import Future as _FutureCF
 
 
-# TODO: validate impossible to re-enter the mutex from callback
 class Future(FutureBaseExt):
     def __init__(self, *, clb_executor=None):
         """Initialize the future.

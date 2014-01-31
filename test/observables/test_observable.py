@@ -70,31 +70,3 @@ class ObservableTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-
-'''
-class source:
-    def __init__(self):
-        self.i = 0
-        self.last = 5
-
-    @asyncio.coroutine
-    def recv(self):
-        yield from asyncio.sleep(0.5)
-
-        if self.i == self.last:
-            raise StreamEndError()
-        else:
-            r = self.i
-            self.i += 1
-            return r
-
-    def get_next(self):
-        return self.recv()
-
-    def __next__(self):
-        if self.i == self.last:
-            raise StopIteration()
-        return self.recv()
-
-    def __iter__(self):
-        return self'''
