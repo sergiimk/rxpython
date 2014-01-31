@@ -1,7 +1,7 @@
 from .ensure_exception_handled import EnsureExceptionHandledGuard
 from .synchronous_executor import Synchronous
-from ...config import Default
-from ..exceptions import (InvalidStateError, CancelledError)
+from .exceptions import (InvalidStateError, CancelledError)
+from ..config import Default
 
 
 # States for Future.

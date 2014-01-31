@@ -1,5 +1,5 @@
-from ..cooperative.future_base import _PENDING, _CANCELLED
-from ..cooperative.future_extensions import FutureBaseExt
+from ..future_base import _PENDING, _CANCELLED
+from ..future_extensions import FutureBaseExt
 from ..exceptions import InvalidStateError, TimeoutError
 from threading import Condition
 

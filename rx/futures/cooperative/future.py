@@ -1,4 +1,4 @@
-from .future_extensions import FutureBaseExt
+from ..future_extensions import FutureBaseExt
 
 
 class Future(FutureBaseExt):
