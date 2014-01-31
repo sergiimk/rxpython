@@ -120,6 +120,10 @@ class Future(FutureBaseExt):
         super()._on_result_set()
         self._mutex.notify_all()
 
+    def __repr__(self):
+        with self._mutex:
+            return super().__repr__()
+
     @classmethod
     def convert(cls, future):
         """Single-threaded futures are compatible with multithreaded."""

@@ -1,7 +1,7 @@
-from ._ensure_exception_handled import EnsureExceptionHandledGuard
 from ._synchronous_executor import Synchronous
 from ._exceptions import (InvalidStateError, CancelledError)
 from ..config import Default
+from .._ensure_exception_handled import EnsureExceptionHandledGuard
 
 
 # States for Future.
@@ -96,7 +96,7 @@ class FutureBase:
         if self._state == _CANCELLED:
             raise CancelledError
         if self._state != _FINISHED:
-            raise InvalidStateError('Exception is not set.')
+            raise InvalidStateError('Future has not yet finished')
 
         self._error_handled()
         return self._exception

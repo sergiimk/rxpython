@@ -1,4 +1,4 @@
-from ._observable_base import ObservableBase
+from ._observable_base import ObservableBase, _ACTIVE, _CANCELLED
 from ..futures.multithreaded import Future
 from threading import Lock
 
@@ -20,7 +20,7 @@ class Observable(ObservableBase):
 
     def cancelled(self):
         with self._mutex:
-            return super().cancel()
+            return super().cancelled()
 
     def done(self):
         with self._mutex:
@@ -30,14 +30,25 @@ class Observable(ObservableBase):
         with self._mutex:
             return super().next()
 
+    def exception(self):
+        with self._mutex:
+            return super().exception()
+
     def cancel(self):
         with self._mutex:
-            return super().cancel()
+            if self._state != _ACTIVE:
+                return False
+            self._error_handled()
+            return super()._try_end(_CANCELLED, None)
 
-    def try_set_next_value(self, value):
+    def _try_set_next_value(self, value):
         with self._mutex:
-            return super().try_set_next_value(value)
+            return super()._try_set_next_value(value)
 
-    def set_end(self):
+    def _try_end(self, state, exception):
         with self._mutex:
-            return super().set_end()
+            return super()._try_end(state, exception)
+
+    def __repr__(self):
+        with self._mutex:
+            return super().__repr__()

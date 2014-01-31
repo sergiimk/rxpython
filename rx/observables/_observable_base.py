@@ -1,5 +1,7 @@
 from ._exceptions import StreamEndError
 from ..futures import FutureBase, Synchronous, CancelledError, InvalidStateError
+from ..config import Default
+from .._ensure_exception_handled import EnsureExceptionHandledGuard
 
 
 # States for Observable
@@ -8,10 +10,12 @@ _CANCELLED = 'CANCELLED'
 _ENDED = 'ENDED'
 
 
-# TODO: subscription-baser callback removal and cancellation
+# TODO: subscription-based callback removal and cancellation
 class ObservableBase:
     _future = None
     _state = _ACTIVE
+    _exception = None
+    _ex_handler = None
 
     def __init__(self, *, clb_executor=None):
         self._promises = []
@@ -20,8 +24,9 @@ class ObservableBase:
 
     def add_observe_callback(self, fun, *, executor=None):
         if self._state != _ACTIVE:
+            exc = self._get_exception()
             future = self._future(clb_executor=executor or self._executor)
-            future.set_exception(StreamEndError() if self._state == _ENDED else CancelledError())
+            future.set_exception(exc)
             self._run_callback(fun, future, executor)
         else:
             self._callbacks.append((fun, executor))
@@ -46,11 +51,20 @@ class ObservableBase:
         promise = self._future(clb_executor=self._executor)
 
         if self._state != _ACTIVE:
-            promise.set_exception(StreamEndError() if self._state == _ENDED else CancelledError())
+            exc = self._get_exception()
+            promise.set_exception(exc)
         else:
             self._promises.append(promise)
 
         return promise
+
+    def exception(self):
+        if self._state == _CANCELLED:
+            raise CancelledError()
+        if self._state != _ENDED:
+            raise InvalidStateError('Observable has not ended yet')
+        self._error_handled()
+        return self._exception
 
     def cancel(self):
         """Cancel the observable and trigger callbacks.
@@ -61,14 +75,28 @@ class ObservableBase:
         """
         if self._state != _ACTIVE:
             return False
-        self._set_state(_CANCELLED)
-        return True
+        self._error_handled()
+        return self._try_end(_CANCELLED, None)
 
     def set_next_value(self, value):
-        if not self.try_set_next_value(value):
+        if not self._try_set_next_value(value):
             raise InvalidStateError("Observable is already marked as ended")
 
     def try_set_next_value(self, value):
+        return self._try_set_next_value(value)
+
+    def set_exception(self, exception):
+        if not self._try_end(_ENDED, exception):
+            raise InvalidStateError("Observable is already marked as ended")
+
+    def try_set_exception(self, exception):
+        return self._try_end(_ENDED, exception)
+
+    def set_end(self):
+        if not self._try_end(_ENDED, None):
+            raise InvalidStateError("Observable is already marked as ended")
+
+    def _try_set_next_value(self, value):
         if self._state == _CANCELLED:
             return True
         if self._state == _ENDED:
@@ -87,20 +115,25 @@ class ObservableBase:
 
         return True
 
-    def set_end(self):
+    def _try_end(self, state, exception):
         if self._state == _CANCELLED:
-            return False
+            return True
         if self._state == _ENDED:
-            raise InvalidStateError("Observable is already marked as ended")
-        self._set_state(_ENDED)
-        return True
+            return False
 
-    def _set_state(self, state):
         self._state = state
-        exc = StreamEndError() if state == _ENDED else CancelledError()
+
+        if exception is not None:
+            self._exception = exception
+            clb = Default.UNHANDLED_FAILURE_CALLBACK
+            self._ex_handler = EnsureExceptionHandledGuard(self._exception, clb)
+            self._executor(self._ex_handler.activate)
+
+        exc = self._get_exception()
         promise = None
 
         if self._promises:
+            self._error_handled()
             promise = self._promises[0]
             promises = self._promises[:]
             self._promises.clear()
@@ -108,10 +141,20 @@ class ObservableBase:
                 p.set_exception(exc)
 
         if self._callbacks:
+            self._error_handled()
             if promise is None:
                 promise = self._future(clb_executor=self._executor)
                 promise.set_exception(exc)
             self._run_callbacks(promise)
+
+        return True
+
+    def _get_exception(self):
+        if self._exception is not None:
+            return self._exception
+        if self._state == _CANCELLED:
+            return CancelledError()
+        return StreamEndError()
 
     def _run_callbacks(self, future):
         callbacks = self._callbacks[:]
@@ -121,6 +164,11 @@ class ObservableBase:
     def _run_callback(self, fun, future, executor):
         executor = executor or self._executor
         executor(fun, self, future)
+
+    def _error_handled(self):
+        if self._ex_handler is not None:
+            self._ex_handler.clear()
+            self._ex_handler = None
 
     def __repr__(self):
         res = self.__class__.__name__
@@ -132,6 +180,8 @@ class ObservableBase:
                     size - 2, self._callbacks[-1])
             else:
                 res += '<{}, {}>'.format(self._state, self._callbacks)
+        elif self._exception is not None:
+            res += '<exception={!r}>'.format(self._exception)
         else:
             res += '<{}>'.format(self._state)
         return res
