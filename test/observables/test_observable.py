@@ -1,44 +1,75 @@
-from rx.observables import Observable, StreamEndError
+from rx.observables import Observable, StreamEndError, CancelledError
 import unittest
 
 
 class ObservableTest(unittest.TestCase):
-    def test_foo(self):
-        pass
+    def test_callbacks(self):
+        obs = Observable()
+        send = [1, 2, 3]
+        self.recv = []
+
+        def clb(obs, fut):
+            self.recv.append(fut.result())
+
+        obs.add_observe_callback(clb)
+        for v in send:
+            obs.set_next_value(v)
+
+        self.assertListEqual(send, self.recv)
+
+    def test_end_marker(self):
+        obs = Observable()
+        self.assertFalse(obs.done())
+
+        self.recv = None
+
+        def clb(obs, fut):
+            self.recv = fut.exception()
+
+        obs.add_observe_callback(clb)
+        obs.set_end()
+        self.assertTrue(obs.done())
+        self.assertIsInstance(self.recv, StreamEndError)
+
+    def test_end_callback_post_completion(self):
+        obs = Observable()
+        obs.set_end()
+        self.recv = None
+
+        def clb(obs, fut):
+            self.recv = fut.exception()
+
+        obs.add_observe_callback(clb)
+        self.assertIsInstance(self.recv, StreamEndError)
+
+    def test_cancelling_fires_callback(self):
+        obs = Observable()
+        self.assertFalse(obs.cancelled())
+        self.recv = None
+
+        def clb(obs, fut):
+            self.recv = fut.exception()
+
+        obs.add_observe_callback(clb)
+        obs.cancel()
+        self.assertTrue(obs.cancelled())
+        self.assertIsInstance(self.recv, CancelledError)
+
+    def test_cancel_callback_post_completion(self):
+        obs = Observable()
+        obs.cancel()
+        self.recv = None
+
+        def clb(obs, fut):
+            self.recv = fut.exception()
+
+        obs.add_observe_callback(clb)
+        self.assertIsInstance(self.recv, CancelledError)
+
 
 
 if __name__ == '__main__':
-    #unittest.main()
-    import asyncio
-    import logging
-    logging.basicConfig(level=logging.INFO)
-
-    def tick(i, obs):
-        obs.set_next_value(i)
-        if i < 4:
-            asyncio.get_event_loop().call_later(0.5, tick, i + 1, obs)
-        else:
-            obs.set_end()
-
-    def process():
-        obs = Observable()
-        asyncio.get_event_loop().call_soon(tick, 0, obs)
-
-        futures = [obs.next() for _ in range(10)]
-
-
-        def clb(obs, fut):
-            print(futures)
-            #print(obs, fut)
-            if isinstance(fut.exception(), StreamEndError):
-                asyncio.get_event_loop().stop()
-
-        obs.add_observe_callback(clb)
-
-    process()
-    loop = asyncio.get_event_loop()
-    loop.run_forever()
-
+    unittest.main()
 
 '''
 class source:

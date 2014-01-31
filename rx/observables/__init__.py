@@ -1,1 +1,1 @@
-from .observable_base import ObservableBase as Observable, StreamEndError
+from .observable_base import ObservableBase as Observable, StreamEndError, CancelledError
