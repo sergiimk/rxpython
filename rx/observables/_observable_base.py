@@ -8,6 +8,7 @@ _CANCELLED = 'CANCELLED'
 _ENDED = 'ENDED'
 
 
+# TODO: subscription-baser callback removal and cancellation
 class ObservableBase:
     _state = _ACTIVE
 

@@ -362,6 +362,48 @@ class FutureBaseExt(FutureBase):
     def compatible(cls, futures):
         pass
 
+    @staticmethod
+    def to_asyncio_future(rxfuture, *, loop=None):
+        """Wraps specified future to asyncio.Future"""
+        import asyncio
+        aiofuture = asyncio.Future(loop=loop)
+
+        def clb(_):
+            if rxfuture.cancelled():
+                aiofuture.cancel()
+            else:
+                exc = rxfuture.exception()
+                if exc is not None:
+                    aiofuture.set_exception(exc)
+                else:
+                    aiofuture.set_result(rxfuture.result())
+
+        def backprop_cancel(_):
+            if aiofuture.cancelled():
+                rxfuture.cancel()
+
+        rxfuture.add_done_callback(clb)
+        aiofuture.add_done_callback(backprop_cancel)
+        return aiofuture
+
+    @classmethod
+    def from_asyncio_future(cls, aiofuture, *, clb_executor=None):
+        """Wraps asyncio.Future into chosen reactive Future class"""
+        rxfuture = cls(clb_executor=None)
+
+        def clb(_):
+            rxfuture.set_from(aiofuture)
+
+        def backprop_cancel(_):
+            if aiofuture.cancelled():
+                rxfuture.cancel()
+
+        aiofuture.add_done_callback(clb)
+        rxfuture.add_done_callback(backprop_cancel)
+        return rxfuture
+
+
+
 
 def _typename(cls):
     return cls.__module__ + '.' + cls.__name__
