@@ -40,11 +40,11 @@ class ObservableBase:
 
     def cancelled(self):
         """Return True if the observable stream was cancelled."""
-        return self._state == _CANCELLED
+        return self._state is _CANCELLED
 
     def done(self):
         """Return True if the observable stream is ended or has been cancelled."""
-        return self._state != _ACTIVE
+        return self._state is not _ACTIVE
 
     def next(self):
         """Returns Future representing next value in the stream."""
@@ -59,9 +59,9 @@ class ObservableBase:
         return promise
 
     def exception(self):
-        if self._state == _CANCELLED:
+        if self._state is _CANCELLED:
             raise CancelledError()
-        if self._state != _COMPLETED:
+        if self._state is not _COMPLETED:
             raise InvalidStateError('Observable is not done yet')
         self._error_handled()
         return self._exception
@@ -73,7 +73,7 @@ class ObservableBase:
         Otherwise, changes the state to cancelled, schedules the callbacks
         and returns True.
         """
-        if self._state != _ACTIVE:
+        if self._state is not _ACTIVE:
             return False
         self._error_handled()
         return self._try_end(_CANCELLED, None)
@@ -97,9 +97,9 @@ class ObservableBase:
             raise InvalidStateError("Observable is already marked as completed")
 
     def _try_set_next_value(self, value):
-        if self._state == _CANCELLED:
+        if self._state is _CANCELLED:
             return True
-        if self._state == _COMPLETED:
+        if self._state is _COMPLETED:
             return False
 
         promise = None
@@ -116,9 +116,9 @@ class ObservableBase:
         return True
 
     def _try_end(self, state, exception):
-        if self._state == _CANCELLED:
+        if self._state is _CANCELLED:
             return True
-        if self._state == _COMPLETED:
+        if self._state is _COMPLETED:
             return False
 
         self._state = state
@@ -152,7 +152,7 @@ class ObservableBase:
     def _get_exception(self):
         if self._exception is not None:
             return self._exception
-        if self._state == _CANCELLED:
+        if self._state is _CANCELLED:
             return CancelledError()
         return StreamEndError()
 
@@ -172,7 +172,7 @@ class ObservableBase:
 
     def __repr__(self):
         res = self.__class__.__name__
-        if self._state == _ACTIVE and self._callbacks:
+        if self._state is _ACTIVE and self._callbacks:
             size = len(self._callbacks)
             if size > 2:
                 res += '<{}, [{}, <{} more>, {}]>'.format(

@@ -38,7 +38,7 @@ class Observable(ObservableBaseExt):
 
     def cancel(self):
         with self._mutex:
-            if self._state != _ACTIVE:
+            if self._state is not _ACTIVE:
                 return False
             self._error_handled()
             return super()._try_end(_CANCELLED, None)
