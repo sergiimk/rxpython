@@ -7,7 +7,7 @@ from .._ensure_exception_handled import EnsureExceptionHandledGuard
 # States for Observable
 _ACTIVE = 'ACTIVE'
 _CANCELLED = 'CANCELLED'
-_ENDED = 'ENDED'
+_COMPLETED = 'COMPLETED'
 
 
 # TODO: subscription-based callback removal and cancellation
@@ -61,8 +61,8 @@ class ObservableBase:
     def exception(self):
         if self._state == _CANCELLED:
             raise CancelledError()
-        if self._state != _ENDED:
-            raise InvalidStateError('Observable has not ended yet')
+        if self._state != _COMPLETED:
+            raise InvalidStateError('Observable is not done yet')
         self._error_handled()
         return self._exception
 
@@ -80,26 +80,26 @@ class ObservableBase:
 
     def set_next_value(self, value):
         if not self._try_set_next_value(value):
-            raise InvalidStateError("Observable is already marked as ended")
+            raise InvalidStateError("Observable is already marked as completed")
 
     def try_set_next_value(self, value):
         return self._try_set_next_value(value)
 
     def set_exception(self, exception):
-        if not self._try_end(_ENDED, exception):
-            raise InvalidStateError("Observable is already marked as ended")
+        if not self._try_end(_COMPLETED, exception):
+            raise InvalidStateError("Observable is already marked as completed")
 
     def try_set_exception(self, exception):
-        return self._try_end(_ENDED, exception)
+        return self._try_end(_COMPLETED, exception)
 
-    def set_end(self):
-        if not self._try_end(_ENDED, None):
-            raise InvalidStateError("Observable is already marked as ended")
+    def set_completed(self):
+        if not self._try_end(_COMPLETED, None):
+            raise InvalidStateError("Observable is already marked as completed")
 
     def _try_set_next_value(self, value):
         if self._state == _CANCELLED:
             return True
-        if self._state == _ENDED:
+        if self._state == _COMPLETED:
             return False
 
         promise = None
@@ -118,7 +118,7 @@ class ObservableBase:
     def _try_end(self, state, exception):
         if self._state == _CANCELLED:
             return True
-        if self._state == _ENDED:
+        if self._state == _COMPLETED:
             return False
 
         self._state = state

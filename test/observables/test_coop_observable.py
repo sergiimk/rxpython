@@ -14,7 +14,7 @@ class ObservableTest(unittest.TestCase):
                 obs.set_next_value(i)
                 loop.call_soon(produce, i + 1)
             else:
-                obs.set_end()
+                obs.set_completed()
 
         @asyncio.coroutine
         def consume():

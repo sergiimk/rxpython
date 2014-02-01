@@ -18,7 +18,7 @@ class ObservableTest(unittest.TestCase):
 
         self.assertListEqual(send, self.recv)
 
-    def test_end_marker(self):
+    def test_completion(self):
         obs = Observable()
         self.assertFalse(obs.done())
 
@@ -28,13 +28,13 @@ class ObservableTest(unittest.TestCase):
             self.recv = fut.exception()
 
         obs.add_observe_callback(clb)
-        obs.set_end()
+        obs.set_completed()
         self.assertTrue(obs.done())
         self.assertIsInstance(self.recv, StreamEndError)
 
-    def test_end_callback_post_completion(self):
+    def test_callback_post_completion(self):
         obs = Observable()
-        obs.set_end()
+        obs.set_completed()
         self.recv = None
 
         def clb(obs, fut):
